@@ -56,11 +56,12 @@
   }
 </script>
 
-<header class="toolbar">
-  <strong>設定</strong>
-</header>
+<div class="head">
+  <h1 class="page-title">設定</h1>
+  <p class="page-subtitle">kit の置き場と sbx の呼び出し先を指定します</p>
+</div>
 
-<section class="panel card">
+<section class="surface card">
   <div class="field">
     <span class="label">kits ディレクトリ</span>
     <PathInput bind:value={draft.kits_dir} title="kits ディレクトリを選択" />
@@ -72,9 +73,7 @@
   <div class="field">
     <span class="label">workspace の作成先</span>
     <PathInput bind:value={draft.workspace_root} title="workspace の作成先を選択" />
-    <span class="hint">
-      作成画面の「〜を作成して使う」でディレクトリを掘る親ディレクトリです。
-    </span>
+    <span class="hint">作成画面の「〜を作成して使う」でディレクトリを掘る親ディレクトリです。</span>
   </div>
 
   <div class="field">
@@ -87,7 +86,7 @@
       {/if}
     </span>
     {#if sbxError}
-      <span class="hint" style="color: var(--danger)">{sbxError}</span>
+      <span class="hint danger">{sbxError}</span>
     {/if}
   </div>
 
@@ -105,8 +104,10 @@
         draft = { ...settings.current };
         saved = false;
       }}
-      disabled={saving || !dirty}>元に戻す</button
+      disabled={saving || !dirty}
     >
+      元に戻す
+    </button>
     {#if saved && !dirty}
       <span class="muted">保存しました</span>
     {/if}
@@ -114,13 +115,17 @@
 </section>
 
 <style>
-  .toolbar {
-    margin-bottom: 12px;
+  .head {
+    margin-bottom: 16px;
   }
 
   .card {
-    padding: 16px;
+    padding: 20px;
     max-width: 640px;
+  }
+
+  .hint.danger {
+    color: var(--red);
   }
 
   .actions {

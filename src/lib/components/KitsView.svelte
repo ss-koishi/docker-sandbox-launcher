@@ -4,6 +4,7 @@
   import { errorMessage, listKits, readKitSpec } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { kitLabel, type Kit } from '$lib/types';
+  import Icon from './Icon.svelte';
 
   let kits = $state<Kit[]>([]);
   let loading = $state(true);
@@ -41,112 +42,155 @@
   }
 </script>
 
-<header class="toolbar">
-  <div class="row">
-    <strong>キット</strong>
-    <code class="muted">{settings.current.kits_dir}</code>
-  </div>
-  <div class="row">
-    <button type="button" onclick={refresh} disabled={loading}>再読み込み</button>
-    <button
-      type="button"
-      onclick={() => revealItemInDir(settings.current.kits_dir)}
-      disabled={!settings.current.kits_dir}>Finder で開く</button
-    >
-  </div>
-</header>
+<div class="head">
+  <h1 class="page-title">キット</h1>
+  <p class="page-subtitle">
+    <code>{settings.current.kits_dir}</code> 配下の kit（{kits.length} 件）
+  </p>
+</div>
+
+<div class="toolbar">
+  <div class="spacer"></div>
+  <button
+    type="button"
+    onclick={() => revealItemInDir(settings.current.kits_dir)}
+    disabled={!settings.current.kits_dir}
+  >
+    <span class="btn-inner"><Icon name="folder" size={15} /> Finder で開く</span>
+  </button>
+  <button type="button" class="icon" onclick={refresh} disabled={loading} title="再読み込み" aria-label="再読み込み">
+    <Icon name="refresh" size={16} />
+  </button>
+</div>
 
 {#if error}
   <p class="error">{error}</p>
 {/if}
 
-{#if loading && kits.length === 0}
-  <p class="muted">読み込み中…</p>
-{:else if kits.length === 0 && !error}
-  <p class="muted">
-    spec.yml を持つサブディレクトリが見つかりません。設定画面で kits ディレクトリを変更できます。
-  </p>
-{:else}
-  <div class="list">
-    {#each kits as kit (kit.path)}
-      <article class="panel card">
-        <div class="head">
-          <div class="row">
-            <strong>{kitLabel(kit)}</strong>
-            {#if kit.kind}<span class="badge">{kit.kind}</span>{/if}
-            {#if kit.requires_agent}
-              <span class="badge">requires: {kit.requires_agent}</span>
-            {/if}
-          </div>
-          <div class="row">
-            {#if kit.spec_file}
-              <button type="button" class="link" onclick={() => toggleSpec(kit)}>
-                {kit.path in specs ? 'spec を閉じる' : 'spec を見る'}
+<div class="surface table-wrap">
+  {#if loading && kits.length === 0}
+    <p class="empty">読み込み中…</p>
+  {:else if kits.length === 0}
+    <p class="empty">
+      spec.yml を持つサブディレクトリが見つかりません。設定から kits ディレクトリを変更できます。
+    </p>
+  {:else}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>種別</th>
+          <th>要求エージェント</th>
+          <th>パス</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each kits as kit (kit.path)}
+          <tr>
+            <td class="name">
+              {kitLabel(kit)}
+              {#if kit.error}
+                <span class="chip warning">spec 読み取り失敗</span>
+              {/if}
+            </td>
+            <td>
+              {#if kit.kind}<span class="chip">{kit.kind}</span>{:else}<span class="muted">—</span
+                >{/if}
+            </td>
+            <td class="muted">{kit.requires_agent ?? '—'}</td>
+            <td><code class="path">{kit.path}</code></td>
+            <td class="actions">
+              {#if kit.spec_file}
+                <button
+                  type="button"
+                  class="icon"
+                  class:on={kit.path in specs}
+                  onclick={() => toggleSpec(kit)}
+                  title="spec を表示"
+                  aria-label="{kitLabel(kit)} の spec を表示"
+                >
+                  <Icon name="file" size={16} />
+                </button>
+              {/if}
+              <button
+                type="button"
+                class="icon"
+                onclick={() => revealItemInDir(kit.path)}
+                title="Finder で開く"
+                aria-label="{kitLabel(kit)} を Finder で開く"
+              >
+                <Icon name="folder" size={16} />
               </button>
-            {/if}
-            <button type="button" onclick={() => revealItemInDir(kit.path)}>Finder</button>
-          </div>
-        </div>
-
-        <div class="meta muted">
-          <code>{kit.path}</code>
-        </div>
-
-        {#if kit.error}
-          <p class="error">{kit.error}</p>
-        {/if}
-
-        {#if kit.path in specs}
-          <pre class="spec">{specs[kit.path]}</pre>
-        {/if}
-      </article>
-    {/each}
-  </div>
-{/if}
+            </td>
+          </tr>
+          {#if kit.error}
+            <tr class="detail">
+              <td colspan="5"><p class="error">{kit.error}</p></td>
+            </tr>
+          {/if}
+          {#if kit.path in specs}
+            <tr class="detail">
+              <td colspan="5"><pre class="spec">{specs[kit.path]}</pre></td>
+            </tr>
+          {/if}
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</div>
 
 <style>
+  .head {
+    margin-bottom: 16px;
+  }
+
+  .head code {
+    word-break: break-all;
+  }
+
   .toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 12px;
   }
 
-  .toolbar code {
-    word-break: break-all;
-  }
-
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .card {
-    padding: 12px 14px;
-  }
-
-  .head {
-    display: flex;
+  .btn-inner {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 6px;
   }
 
-  .meta {
-    font-size: 12px;
-    margin-top: 4px;
+  .table-wrap {
+    overflow: hidden;
+  }
+
+  .path {
     word-break: break-all;
+  }
+
+  .actions :global(button.icon.on) {
+    background: var(--blue-tint);
+    color: var(--blue);
+  }
+
+  .detail td {
+    padding-top: 0;
+    background: var(--surface-alt);
+  }
+
+  .detail:hover {
+    background: transparent;
   }
 
   .spec {
-    margin: 10px 0 0;
-    padding: 10px;
-    max-height: 320px;
+    margin: 10px 0;
+    padding: 12px;
+    max-height: 340px;
     overflow: auto;
-    background: var(--panel-alt);
+    background: var(--content-bg);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: var(--radius);
   }
 </style>

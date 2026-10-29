@@ -3,6 +3,7 @@
   import { createSandbox, ensureWorkspaceDir, errorMessage, listAgents, listKits } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { isMixin, kitLabel, type Kit, type LogLine, type WorkspaceMount } from '$lib/types';
+  import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
   import PathInput from './PathInput.svelte';
 
@@ -59,9 +60,7 @@
   }
 
   function toggleKit(path: string) {
-    selected = selected.includes(path)
-      ? selected.filter((p) => p !== path)
-      : [...selected, path];
+    selected = selected.includes(path) ? selected.filter((p) => p !== path) : [...selected, path];
   }
 
   async function makeWorkspaceDir() {
@@ -83,13 +82,10 @@
     workspaces.push(...extras.filter((m) => m.path.trim()));
 
     try {
-      await createSandbox(
-        { agent, name: name.trim(), workspaces, kits: selected },
-        (line) => {
-          logs = [...logs, line];
-          queueMicrotask(() => logBox?.scrollTo({ top: logBox.scrollHeight }));
-        }
-      );
+      await createSandbox({ agent, name: name.trim(), workspaces, kits: selected }, (line) => {
+        logs = [...logs, line];
+        queueMicrotask(() => logBox?.scrollTo({ top: logBox.scrollHeight }));
+      });
       oncreated();
     } catch (e) {
       runError = errorMessage(e);
@@ -121,11 +117,11 @@
         placeholder="./my-kit, docker.io/org/kit:1.0.0, git+https://…"
       />
     {/if}
-    <span class="hint">sandbox の土台になる workload。`sbx create` の第 1 引数に渡されます。</span>
+    <span class="hint">サンドボックスの土台になる workload です。</span>
   </div>
 
   <div class="field">
-    <span class="label">sandbox 名</span>
+    <span class="label">サンドボックス名</span>
     <input
       type="text"
       bind:value={name}
@@ -134,7 +130,7 @@
       placeholder="my-project"
     />
     {#if name.trim() && !nameValid}
-      <span class="hint" style="color: var(--danger)">
+      <span class="hint danger">
         2 文字以上で、英数字から始まり、英数字・ハイフン・ピリオドのみが使えます。
       </span>
     {/if}
@@ -155,7 +151,7 @@
 
   <div class="field">
     <span class="label">追加マウント</span>
-    {#each extras as mount, i (i)}
+    {#each extras as _mount, i (i)}
       <div class="row mount">
         <PathInput bind:value={extras[i].path} disabled={running} />
         <label class="ro">
@@ -164,29 +160,34 @@
         </label>
         <button
           type="button"
+          class="icon danger"
           onclick={() => (extras = extras.filter((_, j) => j !== i))}
           disabled={running}
-          aria-label="削除">✕</button
+          aria-label="この行を削除"
         >
+          <Icon name="close" size={15} />
+        </button>
       </div>
     {/each}
     <div class="row">
       <button
         type="button"
         onclick={() => (extras = [...extras, { path: '', readonly: true }])}
-        disabled={running}>+ ディレクトリを追加</button
+        disabled={running}
       >
+        <span class="btn-inner"><Icon name="plus" size={15} /> ディレクトリを追加</span>
+      </button>
     </div>
   </div>
 
   <div class="field">
-    <span class="label">kits（mixin）</span>
+    <span class="label">キット（mixin）</span>
     {#if mixins.length === 0}
       <span class="hint">
-        {settings.current.kits_dir} に kit が見つかりません。設定画面でディレクトリを確認してください。
+        {settings.current.kits_dir} に kit が見つかりません。設定からディレクトリを確認してください。
       </span>
     {:else}
-      <div class="kits panel">
+      <div class="kits">
         {#each mixins as kit (kit.path)}
           <label class="kit">
             <input
@@ -198,7 +199,7 @@
             <span class="kit-name">{kitLabel(kit)}</span>
             <code class="muted">{kit.id}</code>
             {#if kit.requires_agent}
-              <span class="badge" class:warn={kit.requires_agent !== agent}>
+              <span class="chip" class:warning={kit.requires_agent !== agent}>
                 requires: {kit.requires_agent}
               </span>
             {/if}
@@ -207,7 +208,7 @@
       </div>
     {/if}
     {#if conflicts.length > 0}
-      <span class="hint" style="color: var(--warn)">
+      <span class="hint warning">
         選択中の kit が別のエージェントを要求しています（{conflicts
           .map((k) => `${kitLabel(k)} → ${k.requires_agent}`)
           .join('、')}）。作成時に sbx 側で弾かれる可能性があります。
@@ -218,7 +219,7 @@
   {#if logs.length > 0 || running}
     <div class="field">
       <span class="label">実行ログ</span>
-      <pre class="log panel" bind:this={logBox}>{#each logs as line, i (i)}<span
+      <pre class="log" bind:this={logBox}>{#each logs as line, i (i)}<span
             class:err={line.stream === 'stderr'}>{line.text}
 </span>{/each}</pre>
     </div>
@@ -248,26 +249,44 @@
   .ro {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .btn-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hint.danger {
+    color: var(--red);
+  }
+
+  .hint.warning {
+    color: var(--amber);
   }
 
   .kits {
-    max-height: 180px;
+    max-height: 190px;
     overflow: auto;
     padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .kit {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: 5px 7px;
+    border-radius: var(--radius);
   }
 
   .kit:hover {
-    background: var(--panel-alt);
+    background: var(--row-hover);
   }
 
   .kit-name {
@@ -276,15 +295,17 @@
 
   .log {
     margin: 0;
-    padding: 8px 10px;
+    padding: 10px 12px;
     max-height: 220px;
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-all;
-    background: var(--panel-alt);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .log .err {
-    color: var(--warn);
+    color: var(--amber);
   }
 </style>
