@@ -43,7 +43,7 @@
 </script>
 
 <div class="head">
-  <h1 class="page-title">キット</h1>
+  <h1 class="page-title">Kits</h1>
   <p class="page-subtitle">
     <code>{settings.current.kits_dir}</code> 配下の kit（{kits.length} 件）
   </p>

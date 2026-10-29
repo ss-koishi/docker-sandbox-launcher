@@ -95,7 +95,7 @@
   }
 </script>
 
-<Modal title="サンドボックスを作成" dismissible={!running} {onclose}>
+<Modal title="Sandbox を作成" dismissible={!running} {onclose}>
   {#if loadError}
     <p class="error">{loadError}</p>
   {/if}
@@ -117,11 +117,11 @@
         placeholder="./my-kit, docker.io/org/kit:1.0.0, git+https://…"
       />
     {/if}
-    <span class="hint">サンドボックスの土台になる workload です。</span>
+    <span class="hint">sandbox の土台になる workload です。</span>
   </div>
 
   <div class="field">
-    <span class="label">サンドボックス名</span>
+    <span class="label">sandbox 名</span>
     <input
       type="text"
       bind:value={name}
@@ -145,7 +145,7 @@
       </button>
     </div>
     <span class="hint">
-      サンドボックス内にもホストと同じ絶対パスでマウントされます。空にすると bind mount なしで作成します。
+      sandbox 内にもホストと同じ絶対パスでマウントされます。空にすると bind mount なしで作成します。
     </span>
   </div>
 
@@ -181,7 +181,7 @@
   </div>
 
   <div class="field">
-    <span class="label">キット（mixin）</span>
+    <span class="label">kits（mixin）</span>
     {#if mixins.length === 0}
       <span class="hint">
         {settings.current.kits_dir} に kit が見つかりません。設定からディレクトリを確認してください。

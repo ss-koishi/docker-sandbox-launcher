@@ -364,6 +364,24 @@ label {
   font-size: 13px;
 }
 
+/* 保存完了のように、成功を伝える一時的な通知。 */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--green) 45%, transparent);
+  border-left: 3px solid var(--green);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  font-size: 13px;
+}
+
+.notice :global(svg) {
+  color: var(--green);
+}
+
 .empty {
   padding: 48px 16px;
   text-align: center;

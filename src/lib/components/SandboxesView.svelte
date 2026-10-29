@@ -71,9 +71,9 @@
 
 <div class="head">
   <div>
-    <h1 class="page-title">サンドボックス</h1>
+    <h1 class="page-title">Sandboxes</h1>
     <p class="page-subtitle">
-      ローカルのサンドボックスを作成・削除します（{sandboxes.length} 件）
+      ローカルの sandbox を作成・削除します（{sandboxes.length} 件）
     </p>
   </div>
 </div>
@@ -102,9 +102,9 @@
   {:else if visible.length === 0}
     <p class="empty">
       {#if sandboxes.length === 0}
-        サンドボックスがありません。「作成」から追加してください。
+        sandbox がありません。「作成」から追加してください。
       {:else}
-        「{query}」に一致するサンドボックスはありません。
+        「{query}」に一致する sandbox はありません。
       {/if}
     </p>
   {:else}
@@ -173,9 +173,9 @@
 {/if}
 
 {#if removing}
-  <Modal title="サンドボックスを削除" dismissible={!removeBusy} onclose={() => (removing = null)}>
+  <Modal title="Sandbox を削除" dismissible={!removeBusy} onclose={() => (removing = null)}>
     <p>
-      <strong>{removing.name}</strong> を削除します。コンテナとサンドボックスの状態は消え、この操作は取り消せません。
+      <strong>{removing.name}</strong> を削除します。コンテナと sandbox の状態は消え、この操作は取り消せません。
     </p>
     <p class="muted">ホストの workspace ディレクトリと、保持対象の永続ボリュームは残ります。</p>
     {#snippet footer()}

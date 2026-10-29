@@ -10,8 +10,8 @@
   import SettingsView from '$lib/components/SettingsView.svelte';
 
   const TABS: { id: TabId; label: string; icon: IconName }[] = [
-    { id: 'sandboxes', label: 'サンドボックス', icon: 'box' },
-    { id: 'kits', label: 'キット', icon: 'layers' }
+    { id: 'sandboxes', label: 'Sandboxes', icon: 'box' },
+    { id: 'kits', label: 'Kits', icon: 'layers' }
   ];
 
   type TabId = 'sandboxes' | 'kits' | 'settings';
@@ -81,20 +81,26 @@
       {:else if !settings.loaded}
         <p class="muted">読み込み中…</p>
       {:else}
-        {#key reloadKey}
-          {#if tab === 'sandboxes'}
-            <SandboxesView />
-          {:else if tab === 'kits'}
-            <KitsView />
-          {:else}
-            <SettingsView
-              onsaved={() => {
-                reloadKey += 1;
-                void probeSbx();
-              }}
-            />
-          {/if}
-        {/key}
+        <!--
+          設定画面は key の外に置く。中に入れると保存した瞬間に作り直されて、
+          保存完了の表示が消えてしまう。
+        -->
+        {#if tab === 'settings'}
+          <SettingsView
+            onsaved={() => {
+              reloadKey += 1;
+              void probeSbx();
+            }}
+          />
+        {:else}
+          {#key reloadKey}
+            {#if tab === 'sandboxes'}
+              <SandboxesView />
+            {:else}
+              <KitsView />
+            {/if}
+          {/key}
+        {/if}
       {/if}
     </main>
   </div>
