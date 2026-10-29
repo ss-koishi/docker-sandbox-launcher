@@ -50,23 +50,24 @@ pub fn info(settings: &AppSettings) -> TerminalInfo {
 }
 
 /// `argv` を `label` という名前でターミナルに開く。使った連携先の名前を返す。
+///
+/// `env` は `KEY=VALUE` の並び。ターミナルの中で走る sbx もホスト扱いなので、
+/// アプリが sbx を直接呼ぶときと同じものを渡す。
 pub fn open(
     settings: &AppSettings,
     label: &str,
     cwd: Option<&str>,
     argv: &[String],
+    env: &[String],
 ) -> Result<String, String> {
     if argv.is_empty() {
         return Err("実行するコマンドが空です".into());
     }
 
-    // ターミナルの中で走る sbx もホスト扱いなので、同じ環境変数を渡す。
-    let env = settings.env_kv();
-
     match info(settings).effective.as_str() {
-        "herdr" => open_herdr(settings, label, cwd, argv, &env),
-        "custom" => open_custom(settings, argv, &env),
-        _ => open_ghostty(cwd, argv, &env),
+        "herdr" => open_herdr(settings, label, cwd, argv, env),
+        "custom" => open_custom(settings, argv, env),
+        _ => open_ghostty(cwd, argv, env),
     }
 }
 

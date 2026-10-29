@@ -9,6 +9,25 @@ use crate::model::Kit;
 
 const SPEC_FILES: &[&str] = &["spec.yml", "spec.yaml", "kit.yml", "kit.yaml"];
 
+/// kit ディレクトリに置く、ホスト側 sbx へ渡す環境変数のファイル。
+///
+/// spec.yml には書けない（未知のキーは `sbx kit validate` が弾く）ので、
+/// このアプリ独自のサイドカーとして扱う。sbx はこのファイルを見ない。
+pub const HOST_ENV_FILE: &str = "host-env";
+
+/// 1 つの kit ディレクトリの host-env を読む。無ければ空。
+pub fn host_env(kit_dir: &str) -> Vec<(String, String)> {
+    std::fs::read_to_string(Path::new(kit_dir).join(HOST_ENV_FILE))
+        .map(|text| crate::model::parse_env(&text))
+        .unwrap_or_default()
+}
+
+/// 複数の kit の host-env を、並び順どおりに後勝ちで畳み込む。
+pub fn host_env_for(kit_dirs: &[String]) -> Vec<(String, String)> {
+    let layers: Vec<_> = kit_dirs.iter().map(|d| host_env(d)).collect();
+    crate::model::merge_env(&layers)
+}
+
 /// `dir` 直下のサブディレクトリを kit として列挙する。表示名順に並べて返す。
 pub fn scan(dir: &str) -> Result<Vec<Kit>, String> {
     let dir = dir.trim();
@@ -42,9 +61,11 @@ fn read_kit(path: &Path) -> Option<Kit> {
         .map(|name| path.join(name))
         .find(|p| p.is_file())?;
 
+    let dir = path.display().to_string();
     let mut kit = Kit {
         id,
-        path: path.display().to_string(),
+        host_env_keys: host_env(&dir).into_iter().map(|(k, _)| k).collect(),
+        path: dir,
         name: None,
         display_name: None,
         kind: None,
@@ -117,6 +138,14 @@ mod tests {
                 std::fs::write(dir.join("spec.yml"), spec).unwrap();
             }
         }
+
+        fn with_host_env(&self, name: &str, text: &str) {
+            std::fs::write(self.0.join(name).join(HOST_ENV_FILE), text).unwrap();
+        }
+
+        fn dir(&self, name: &str) -> String {
+            self.0.join(name).display().to_string()
+        }
     }
 
     impl Drop for TempDir {
@@ -171,6 +200,47 @@ mod tests {
         assert!(kits[0].error.is_some());
         // 名前が読めなくてもディレクトリ名で表示できる。
         assert_eq!(kits[0].label(), "bad");
+    }
+
+    #[test]
+    fn host_env_を読んで一覧にキーを出す() {
+        let tmp = TempDir::new("hostenv");
+        tmp.kit("vertex", Some("kind: mixin\nname: vertex\n"));
+        tmp.with_host_env(
+            "vertex",
+            "# claude-vertex がホスト側で要求する\nANTHROPIC_VERTEX_PROJECT_ID=p1\nCLOUD_ML_REGION=global\n",
+        );
+        // host-env を持たない kit は空のまま。
+        tmp.kit("plain", Some("kind: mixin\nname: plain\n"));
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        let by_id = |id: &str| kits.iter().find(|k| k.id == id).unwrap().clone();
+
+        assert_eq!(
+            by_id("vertex").host_env_keys,
+            vec!["ANTHROPIC_VERTEX_PROJECT_ID", "CLOUD_ML_REGION"]
+        );
+        assert!(by_id("plain").host_env_keys.is_empty());
+    }
+
+    #[test]
+    fn 複数の_kit_の_host_env_を畳み込む() {
+        let tmp = TempDir::new("merge");
+        tmp.kit("a", Some("kind: mixin\nname: a\n"));
+        tmp.kit("b", Some("kind: mixin\nname: b\n"));
+        tmp.with_host_env("a", "SHARED=from-a\nONLY_A=1\n");
+        tmp.with_host_env("b", "SHARED=from-b\n");
+
+        // 後ろの kit が勝つ。
+        assert_eq!(
+            host_env_for(&[tmp.dir("a"), tmp.dir("b")]),
+            vec![
+                ("SHARED".to_string(), "from-b".to_string()),
+                ("ONLY_A".to_string(), "1".to_string()),
+            ]
+        );
+        // 存在しないディレクトリを混ぜても落ちない。
+        assert!(host_env_for(&["/no/such/kit".to_string()]).is_empty());
     }
 
     #[test]

@@ -58,6 +58,42 @@ Export ANTHROPIC_VERTEX_PROJECT_ID=<project-id> ... in your shell and re-run.
 ターミナル経路では、その先の `sbx run` にも届くよう herdr の `--env` や Ghostty の
 `environment variables` として引き継ぎます。
 
+### kit ごとの host-env
+
+Vertex の設定のように「特定の kit を使うときだけ必要」な変数は、グローバル欄ではなく
+**kit ディレクトリの `host-env` ファイル**に置けます。
+
+```
+~/.sbx/kits/claude-code/
+├── spec.yml
+└── host-env          ← このアプリが読む
+```
+
+```sh
+# host-env
+# claude-vertex がホスト側で要求する
+ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project
+CLOUD_ML_REGION=global
+```
+
+`spec.yml` に書けないのは、未知のキーを `sbx kit validate` が拒否するためです。
+
+```
+error: invalid spec.yaml: field hostEnvironment not found in type spec.specFileV2
+```
+
+`host-env` は sbx が関知しないただのファイルなので、置いても `sbx kit validate` は通ります。
+
+適用されるタイミングは次のとおりです。優先順位は **グローバル欄 → kit の host-env** で、
+後者が勝ちます。複数の kit が同じキーを持つ場合は、選択順の後ろが勝ちます。
+
+| 操作 | kit の特定方法 |
+| --- | --- |
+| 作成 | 作成画面で選んだ kit |
+| ターミナルで開く | `sbx inspect <名前>` が返す `kits` |
+
+Kits 画面と作成画面には、その kit がどのキーを渡すかがチップで表示されます（値は出しません）。
+
 ### ターミナル連携
 
 sandbox 一覧の端末ボタンを押すと `sbx run --name <名前>` が実行されます。飛び先は 3 つから選べ、既定の「自動」は herdr サーバーが動いていれば herdr、そうでなければ Ghostty を使います。

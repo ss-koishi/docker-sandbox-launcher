@@ -19,6 +19,8 @@ export type Kit = {
   display_name: string | null;
   kind: string | null;
   requires_agent: string | null;
+  /** kit ディレクトリの host-env が定義している環境変数のキー。 */
+  host_env_keys: string[];
   spec_file: string | null;
   error: string | null;
 };

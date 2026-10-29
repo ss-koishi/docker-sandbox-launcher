@@ -41,6 +41,9 @@ pub struct Kit {
     pub kind: Option<String>,
     /// `requires.agent`。指定があればそのエージェントとしか組み合わせられない。
     pub requires_agent: Option<String>,
+    /// この kit を使うときにホスト側の sbx へ渡す環境変数のキー。
+    /// 値は表示しない（必要なら host-env ファイルを直接見る）。
+    pub host_env_keys: Vec<String>,
     /// 見つかった spec ファイルの絶対パス。
     pub spec_file: Option<String>,
     /// spec の読み取りに失敗した場合の理由。
@@ -156,32 +159,43 @@ impl Default for AppSettings {
     }
 }
 
+/// `KEY=VALUE` を 1 行ずつ並べたテキストを解釈する。
+/// 空行と `#` 始まりの行は読み飛ばし、キーが空のものは捨てる。
+pub fn parse_env(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| {
+            let (key, value) = line.split_once('=')?;
+            let key = key.trim();
+            if key.is_empty() {
+                return None;
+            }
+            Some((key.to_string(), value.trim().to_string()))
+        })
+        .collect()
+}
+
+/// 後から来たものが前を上書きするように環境変数を畳み込む。
+pub fn merge_env(layers: &[Vec<(String, String)>]) -> Vec<(String, String)> {
+    let mut merged: Vec<(String, String)> = Vec::new();
+    for layer in layers {
+        for (key, value) in layer {
+            match merged.iter_mut().find(|(k, _)| k == key) {
+                Some(slot) => slot.1 = value.clone(),
+                None => merged.push((key.clone(), value.clone())),
+            }
+        }
+    }
+    merged
+}
+
 impl AppSettings {
     /// `extra_env` の複数行テキストを `(KEY, VALUE)` の並びにする。
-    /// 空行と `#` 始まりの行は読み飛ばし、キーが空のものは捨てる。
     pub fn env_pairs(&self) -> Vec<(String, String)> {
-        self.extra_env
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#'))
-            .filter_map(|line| {
-                let (key, value) = line.split_once('=')?;
-                let key = key.trim();
-                if key.is_empty() {
-                    return None;
-                }
-                Some((key.to_string(), value.trim().to_string()))
-            })
-            .collect()
+        parse_env(&self.extra_env)
     }
 
-    /// `KEY=VALUE` 形式の並び。herdr の `--env` や Ghostty に渡すのに使う。
-    pub fn env_kv(&self) -> Vec<String> {
-        self.env_pairs()
-            .into_iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect()
-    }
 }
 
 /// sbx の検出結果。設定画面で「見つかっているか」を示すのに使う。
@@ -286,21 +300,31 @@ mod tests {
                 ("EMPTY".to_string(), String::new()),
             ]
         );
-        assert_eq!(
-            s.env_kv(),
-            vec![
-                "ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project",
-                "CLOUD_ML_REGION=global",
-                "EMPTY=",
-            ]
-        );
     }
 
     #[test]
     fn 値に等号が含まれていても壊れない() {
         assert_eq!(
-            with_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com").env_kv(),
-            vec!["OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com"]
+            with_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com").env_pairs(),
+            vec![(
+                "OTEL_RESOURCE_ATTRIBUTES".to_string(),
+                "team.member=foo@example.com".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn 環境変数は後のレイヤーが勝つ() {
+        let global = parse_env("A=1\nB=2");
+        let kit = parse_env("B=99\nC=3");
+
+        assert_eq!(
+            merge_env(&[global, kit]),
+            vec![
+                ("A".to_string(), "1".to_string()),
+                ("B".to_string(), "99".to_string()),
+                ("C".to_string(), "3".to_string()),
+            ]
         );
     }
 

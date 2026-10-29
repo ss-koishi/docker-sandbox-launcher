@@ -39,6 +39,13 @@
   const canSubmit = $derived(!running && agent !== '' && nameValid);
   const mixins = $derived(kits.filter(isMixin));
 
+  /** 選択中の kit が host-env で渡す環境変数のキー。 */
+  const hostEnvKeys = $derived([
+    ...new Set(
+      mixins.filter((k) => selected.includes(k.path)).flatMap((k) => k.host_env_keys)
+    )
+  ]);
+
   /** 選択中の kit のうち、別のエージェントを要求しているもの。 */
   const conflicts = $derived(
     mixins.filter(
@@ -203,9 +210,18 @@
                 requires: {kit.requires_agent}
               </span>
             {/if}
+            {#each kit.host_env_keys as key (key)}
+              <span class="chip accent">{key}</span>
+            {/each}
           </label>
         {/each}
       </div>
+    {/if}
+    {#if hostEnvKeys.length > 0}
+      <span class="hint">
+        選択中の kit が host-env でホスト側の環境変数を渡します:
+        {hostEnvKeys.join('、')}
+      </span>
     {/if}
     {#if conflicts.length > 0}
       <span class="hint warning">

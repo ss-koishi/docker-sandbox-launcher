@@ -118,9 +118,12 @@ pub async fn create_sandbox(
     on_log: Channel<LogLine>,
 ) -> Result<(), String> {
     let args = request.to_args()?;
+    // 選んだ kit の host-env を sbx に渡す。claude-vertex のように、
+    // サンドボックスではなくホスト側の環境変数を要求するものがある。
+    let kit_env = kits::host_env_for(&request.kits);
 
     blocking(move || {
-        let cli = sbx(&app)?;
+        let cli = sbx(&app)?.with_extra_env(kit_env);
         let code = cli.stream(&args, |line| {
             let _ = on_log.send(line);
         })?;
@@ -186,15 +189,45 @@ pub async fn open_sandbox_terminal(
     blocking(move || {
         let config = settings::load(&app);
         let sbx = Sbx::from_settings(&config)?;
+        // この sandbox が使っている kit の host-env を足す。
+        let kit_dirs = sandbox_kits(&sbx, &name);
+        let sbx = sbx.with_extra_env(kits::host_env_for(&kit_dirs));
+
         let argv = vec![
             sbx.program().display().to_string(),
             "run".into(),
             "--name".into(),
             name.clone(),
         ];
-        terminal::open(&config, &name, cwd.as_deref(), &argv)
+        let env: Vec<String> = sbx
+            .env()
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+
+        terminal::open(&config, &name, cwd.as_deref(), &argv, &env)
     })
     .await
+}
+
+/// `sbx inspect` から、その sandbox が使っているローカル kit のパスを得る。
+/// 取れなければ空を返す（kit なしの sandbox もある）。
+fn sandbox_kits(sbx: &Sbx, name: &str) -> Vec<String> {
+    let Ok(value) = sbx.json::<serde_json::Value>(&["inspect", name]) else {
+        return Vec::new();
+    };
+    // 配列で返る版とオブジェクトで返る版の両方を許容する。
+    let object = value.get(0).unwrap_or(&value);
+
+    object["kits"]
+        .as_array()
+        .map(|kits| {
+            kits.iter()
+                .filter_map(|k| k.as_str())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 #[tauri::command]

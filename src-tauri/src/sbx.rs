@@ -103,6 +103,18 @@ impl Sbx {
         &self.program
     }
 
+    /// kit の host-env のように、呼び出しごとに足す環境変数を重ねる。後勝ち。
+    pub fn with_extra_env(mut self, extra: Vec<(String, String)>) -> Self {
+        let base = std::mem::take(&mut self.env);
+        self.env = crate::model::merge_env(&[base, extra]);
+        self
+    }
+
+    /// 実際に子プロセスへ渡す環境変数。
+    pub fn env(&self) -> &[(String, String)] {
+        &self.env
+    }
+
     fn command(&self) -> Command {
         let mut cmd = command_for(&self.program);
         cmd.envs(self.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));

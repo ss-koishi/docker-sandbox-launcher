@@ -81,6 +81,7 @@
           <th>名前</th>
           <th>種別</th>
           <th>要求エージェント</th>
+          <th>host-env</th>
           <th>パス</th>
           <th></th>
         </tr>
@@ -99,6 +100,17 @@
                 >{/if}
             </td>
             <td class="muted">{kit.requires_agent ?? '—'}</td>
+            <td>
+              {#if kit.host_env_keys.length > 0}
+                <span class="env-keys">
+                  {#each kit.host_env_keys as key (key)}
+                    <span class="chip accent">{key}</span>
+                  {/each}
+                </span>
+              {:else}
+                <span class="muted">—</span>
+              {/if}
+            </td>
             <td><code class="path">{kit.path}</code></td>
             <td class="actions">
               {#if kit.spec_file}
@@ -126,12 +138,12 @@
           </tr>
           {#if kit.error}
             <tr class="detail">
-              <td colspan="5"><p class="error">{kit.error}</p></td>
+              <td colspan="6"><p class="error">{kit.error}</p></td>
             </tr>
           {/if}
           {#if kit.path in specs}
             <tr class="detail">
-              <td colspan="5"><pre class="spec">{specs[kit.path]}</pre></td>
+              <td colspan="6"><pre class="spec">{specs[kit.path]}</pre></td>
             </tr>
           {/if}
         {/each}
@@ -168,6 +180,12 @@
 
   .path {
     word-break: break-all;
+  }
+
+  .env-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
   }
 
   .actions :global(button.icon.on) {
