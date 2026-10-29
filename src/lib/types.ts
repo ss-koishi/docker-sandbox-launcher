@@ -1,0 +1,67 @@
+/** `sbx ls --format json` の 1 要素。 */
+export type Sandbox = {
+  name: string;
+  id: string;
+  agent: string;
+  status: string;
+  /** 先頭が primary workspace。読み取り専用マウントは `/path:ro` の形。 */
+  workspaces: string[];
+  created_at: string | null;
+  last_used_at: string | null;
+  workspace_missing: boolean;
+};
+
+/** kits ディレクトリ配下で見つかったローカル kit。 */
+export type Kit = {
+  id: string;
+  path: string;
+  name: string | null;
+  display_name: string | null;
+  kind: string | null;
+  requires_agent: string | null;
+  spec_file: string | null;
+  error: string | null;
+};
+
+export type WorkspaceMount = {
+  path: string;
+  readonly: boolean;
+};
+
+export type CreateRequest = {
+  agent: string;
+  name: string;
+  /** 先頭が primary workspace。 */
+  workspaces: WorkspaceMount[];
+  /** `--kit` に渡す mixin 参照。 */
+  kits: string[];
+};
+
+export type AppSettings = {
+  kits_dir: string;
+  sbx_path: string;
+  workspace_root: string;
+};
+
+export type SbxInfo = {
+  path: string;
+  version: string;
+};
+
+export type LogLine = {
+  stream: 'stdout' | 'stderr';
+  text: string;
+};
+
+/** Rust 側の `LIFECYCLE_VERBS` に載っている動詞。 */
+export type LifecycleVerb = 'rm' | 'stop' | 'prune';
+
+/** kit の表示名。displayName → name → ディレクトリ名の順。 */
+export function kitLabel(kit: Kit): string {
+  return kit.display_name ?? kit.name ?? kit.id;
+}
+
+/** `--kit` に渡せるのは mixin だけ。kind 未記載のものは判断できないので許可する。 */
+export function isMixin(kit: Kit): boolean {
+  return kit.kind !== 'workload';
+}
