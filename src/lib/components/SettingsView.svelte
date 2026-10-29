@@ -21,6 +21,9 @@
 
   const CUSTOM_PLACEHOLDER = 'open -na Ghostty.app --args -e {command}';
 
+  const ENV_PLACEHOLDER = `ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project
+CLOUD_ML_REGION=global`;
+
   type Props = {
     /** 設定が変わったら各画面を読み直してもらう。 */
     onsaved: () => void;
@@ -166,6 +169,22 @@
       </span>
     </label>
   {/if}
+
+  <div class="field">
+    <span class="label">ターミナルに渡す環境変数</span>
+    <textarea
+      bind:value={draft.terminal_env}
+      spellcheck="false"
+      rows="4"
+      placeholder={ENV_PLACEHOLDER}
+    ></textarea>
+    <span class="hint">
+      1 行に 1 つ <code>KEY=VALUE</code>。<code>#</code> 始まりの行は無視します。
+      エージェントによってはホスト側の環境変数を要求します
+      （<code>claude-vertex</code> なら <code>ANTHROPIC_VERTEX_PROJECT_ID</code> など）。
+      シェルの設定に書いていない変数はここで渡してください。
+    </span>
+  </div>
 
   {#if draft.terminal === 'custom'}
     <div class="field">

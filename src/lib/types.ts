@@ -49,6 +49,8 @@ export type AppSettings = {
   /** `terminal` が `custom` のときのテンプレート。`{command}` を置換する。 */
   terminal_command: string;
   focus_terminal: boolean;
+  /** ターミナルに渡す環境変数。1 行 1 つの `KEY=VALUE`。 */
+  terminal_env: string;
 };
 
 export type TerminalInfo = {

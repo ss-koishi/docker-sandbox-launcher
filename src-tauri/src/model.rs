@@ -131,6 +131,12 @@ pub struct AppSettings {
     pub terminal_command: String,
     /// herdr で開いたあと、Ghostty を前面に出すか。
     pub focus_terminal: bool,
+    /// ターミナルに渡す環境変数。1 行 1 つの `KEY=VALUE`。
+    ///
+    /// sbx のエージェントによってはホスト側の環境変数を要求する
+    /// (claude-vertex の `ANTHROPIC_VERTEX_PROJECT_ID` など)。それらが
+    /// シェルの設定ではなく別の場所で定義されている場合に使う。
+    pub terminal_env: String,
 }
 
 impl Default for AppSettings {
@@ -144,6 +150,7 @@ impl Default for AppSettings {
             herdr_path: String::new(),
             terminal_command: String::new(),
             focus_terminal: true,
+            terminal_env: String::new(),
         }
     }
 }

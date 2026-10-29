@@ -189,6 +189,13 @@ input[type='text']::placeholder {
   color: var(--text-dim);
 }
 
+textarea {
+  font-family: 'SF Mono', ui-monospace, 'Roboto Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
 input[type='text']:focus,
 select:focus,
 textarea:focus {
