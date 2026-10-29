@@ -128,6 +128,25 @@ CLOUD_ML_REGION=global`;
     {/if}
   </div>
 
+  <div class="field">
+    <span class="label">sbx に渡す環境変数</span>
+    <textarea
+      bind:value={draft.extra_env}
+      spellcheck="false"
+      rows="4"
+      placeholder={ENV_PLACEHOLDER}
+    ></textarea>
+    <span class="hint">
+      1 行に 1 つ <code>KEY=VALUE</code>。<code>#</code> 始まりの行は無視します。
+      作成・削除・ターミナル起動を含む、すべての sbx 呼び出しに渡します。
+      <br />
+      エージェントによってはホスト側の環境変数を要求します
+      （<code>claude-vertex</code> の <code>ANTHROPIC_VERTEX_PROJECT_ID</code> など）。これは
+      kit の spec.yml や sbxenv.yaml の <code>env:</code> では代用できません。どちらも
+      サンドボックス側のスコープで、チェックはホストの sbx が行うためです。
+    </span>
+  </div>
+
   <hr />
 
   <div class="field">
@@ -169,22 +188,6 @@ CLOUD_ML_REGION=global`;
       </span>
     </label>
   {/if}
-
-  <div class="field">
-    <span class="label">ターミナルに渡す環境変数</span>
-    <textarea
-      bind:value={draft.terminal_env}
-      spellcheck="false"
-      rows="4"
-      placeholder={ENV_PLACEHOLDER}
-    ></textarea>
-    <span class="hint">
-      1 行に 1 つ <code>KEY=VALUE</code>。<code>#</code> 始まりの行は無視します。
-      エージェントによってはホスト側の環境変数を要求します
-      （<code>claude-vertex</code> なら <code>ANTHROPIC_VERTEX_PROJECT_ID</code> など）。
-      シェルの設定に書いていない変数はここで渡してください。
-    </span>
-  </div>
 
   {#if draft.terminal === 'custom'}
     <div class="field">

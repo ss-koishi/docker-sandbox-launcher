@@ -34,7 +34,29 @@ Developer ID 署名・公証は行っていないため、cask の `postflight` 
 | kits ディレクトリ | `~/.sbx/kits` | 直下の「`spec.yml` を持つサブディレクトリ」を kit として列挙する |
 | workspace の作成先 | `~/sbx-workspaces` | 作成画面の「〜を作成して使う」が掘る親ディレクトリ |
 | sbx のパス | （自動検出） | 空なら PATH と Homebrew の標準的な場所から探す |
+| sbx に渡す環境変数 | （空） | `KEY=VALUE` を 1 行ずつ。下記参照 |
 | ターミナル連携 | 自動 | 端末ボタンの飛び先。下記参照 |
+
+### sbx に渡す環境変数
+
+エージェントによってはホスト側の環境変数を要求します。たとえば `claude-vertex` は
+`ANTHROPIC_VERTEX_PROJECT_ID` が無いとサンドボックスを作る前に止まります。
+
+```
+error: claude-vertex requires a Google Cloud project to be selected.
+Export ANTHROPIC_VERTEX_PROJECT_ID=<project-id> ... in your shell and re-run.
+```
+
+**これは kit の `spec.yml` や `sbxenv.yaml` の `env:` では代用できません。** どちらも
+サンドボックス側のスコープで、このチェックはホストの sbx プロセスが行うためです
+（[環境ファイルのドキュメント](https://docs.docker.com/ai/sandboxes/configuration/environment-files/)
+にも「環境ファイルの `env` 値はホストコマンドには渡されない」と明記されています）。
+`sbxenv.yaml` に `env:` を書いたうえでホストの変数を消して `sbx env create` すると、
+同じエラーで止まることを確認しています。
+
+この欄に書いた値は、作成・削除・ターミナル起動を含むすべての sbx 呼び出しに渡ります。
+ターミナル経路では、その先の `sbx run` にも届くよう herdr の `--env` や Ghostty の
+`environment variables` として引き継ぎます。
 
 ### ターミナル連携
 

@@ -10,7 +10,7 @@ const EMPTY: AppSettings = {
   herdr_path: '',
   terminal_command: '',
   focus_terminal: true,
-  terminal_env: ''
+  extra_env: ''
 };
 
 /** アプリ設定の単一のソース。各画面はここを読み、設定画面だけが書き換える。 */

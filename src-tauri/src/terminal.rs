@@ -60,30 +60,14 @@ pub fn open(
         return Err("実行するコマンドが空です".into());
     }
 
-    let env = parse_env(&settings.terminal_env);
+    // ターミナルの中で走る sbx もホスト扱いなので、同じ環境変数を渡す。
+    let env = settings.env_kv();
 
     match info(settings).effective.as_str() {
         "herdr" => open_herdr(settings, label, cwd, argv, &env),
         "custom" => open_custom(settings, argv, &env),
         _ => open_ghostty(cwd, argv, &env),
     }
-}
-
-/// 設定欄の複数行テキストを `KEY=VALUE` の並びにする。
-/// 空行と `#` 始まりの行は読み飛ばし、キーが空のものは捨てる。
-fn parse_env(text: &str) -> Vec<String> {
-    text.lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .filter_map(|line| {
-            let (key, value) = line.split_once('=')?;
-            let key = key.trim();
-            if key.is_empty() {
-                return None;
-            }
-            Some(format!("{key}={}", value.trim()))
-        })
-        .collect()
 }
 
 /// herdr に workspace を 1 つ作り、その root pane でコマンドを走らせる。
@@ -312,36 +296,6 @@ mod tests {
         assert_eq!(applescript_string("sbx run"), "\"sbx run\"");
         assert_eq!(applescript_string("a\"b"), "\"a\\\"b\"");
         assert_eq!(applescript_string("a\\b"), "\"a\\\\b\"");
-    }
-
-    #[test]
-    fn 環境変数の複数行テキストを解釈する() {
-        let text = "
-            # コメントは無視する
-            ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project
-            CLOUD_ML_REGION = global
-
-            EMPTY=
-            =値だけ
-            値なし
-        ";
-
-        assert_eq!(
-            parse_env(text),
-            vec![
-                "ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project",
-                "CLOUD_ML_REGION=global",
-                "EMPTY=",
-            ]
-        );
-    }
-
-    #[test]
-    fn 値に等号が含まれていても壊れない() {
-        assert_eq!(
-            parse_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com"),
-            vec!["OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com"]
-        );
     }
 
     fn settings(terminal: &str) -> AppSettings {

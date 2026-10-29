@@ -21,6 +21,9 @@ const EXTRA_PATHS: &[&str] = &[
 
 pub struct Sbx {
     program: PathBuf,
+    /// 設定で指定された追加の環境変数。エージェントによってはホスト側の
+    /// 環境変数を要求するので、sbx の呼び出し全部に効かせる。
+    env: Vec<(String, String)>,
 }
 
 /// 設定で明示されたパスを最優先し、なければ既知の場所から実行ファイルを探す。
@@ -89,9 +92,10 @@ pub fn output_of(program: &Path, args: &[&str]) -> Result<String, String> {
 
 impl Sbx {
     /// 設定で明示されたパスを最優先し、なければ既知の場所を順に探す。
-    pub fn locate(configured: &str) -> Result<Self, String> {
+    pub fn from_settings(settings: &crate::model::AppSettings) -> Result<Self, String> {
         Ok(Self {
-            program: locate_program("sbx", configured)?,
+            program: locate_program("sbx", &settings.sbx_path)?,
+            env: settings.env_pairs(),
         })
     }
 
@@ -100,12 +104,27 @@ impl Sbx {
     }
 
     fn command(&self) -> Command {
-        command_for(&self.program)
+        let mut cmd = command_for(&self.program);
+        cmd.envs(self.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        cmd
     }
 
     /// 標準出力を文字列で受け取る。終了コードが 0 以外なら stderr をエラーにする。
     pub fn output(&self, args: &[&str]) -> Result<String, String> {
-        output_of(&self.program, args)
+        let out = self
+            .command()
+            .args(args)
+            .output()
+            .map_err(|e| format!("sbx {} の起動に失敗しました: {e}", args.join(" ")))?;
+
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let detail = if stderr.is_empty() { stdout } else { stderr };
+            return Err(format!("sbx {} が失敗しました: {detail}", args.join(" ")));
+        }
+
+        Ok(String::from_utf8_lossy(&out.stdout).to_string())
     }
 
     /// `--format json` を付けて呼び、結果を型に落とす。

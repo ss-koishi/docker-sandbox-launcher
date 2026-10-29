@@ -24,7 +24,7 @@ pub const LIFECYCLE_VERBS: &[(&str, &[&str])] = &[
 ];
 
 fn sbx(app: &AppHandle) -> Result<Sbx, String> {
-    Sbx::locate(&settings::load(app).sbx_path)
+    Sbx::from_settings(&settings::load(app))
 }
 
 #[tauri::command]
@@ -42,7 +42,7 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<AppSetting
         herdr_path: settings.herdr_path.trim().to_string(),
         terminal_command: settings.terminal_command.trim().to_string(),
         focus_terminal: settings.focus_terminal,
-        terminal_env: settings.terminal_env.trim().to_string(),
+        extra_env: settings.extra_env.trim().to_string(),
     };
     settings::save(&app, &normalized)?;
     Ok(normalized)
@@ -185,7 +185,7 @@ pub async fn open_sandbox_terminal(
 
     blocking(move || {
         let config = settings::load(&app);
-        let sbx = Sbx::locate(&config.sbx_path)?;
+        let sbx = Sbx::from_settings(&config)?;
         let argv = vec![
             sbx.program().display().to_string(),
             "run".into(),

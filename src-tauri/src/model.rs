@@ -131,12 +131,13 @@ pub struct AppSettings {
     pub terminal_command: String,
     /// herdr で開いたあと、Ghostty を前面に出すか。
     pub focus_terminal: bool,
-    /// ターミナルに渡す環境変数。1 行 1 つの `KEY=VALUE`。
+    /// sbx に渡す環境変数。1 行 1 つの `KEY=VALUE`。
     ///
-    /// sbx のエージェントによってはホスト側の環境変数を要求する
-    /// (claude-vertex の `ANTHROPIC_VERTEX_PROJECT_ID` など)。それらが
-    /// シェルの設定ではなく別の場所で定義されている場合に使う。
-    pub terminal_env: String,
+    /// エージェントによってはホスト側の環境変数を要求する
+    /// (claude-vertex の `ANTHROPIC_VERTEX_PROJECT_ID` など)。これは kit の
+    /// spec.yml や sbxenv.yaml の `env:` では満たせない。どちらもサンドボックス
+    /// 側のスコープで、チェックはホストの sbx プロセスが行うため。
+    pub extra_env: String,
 }
 
 impl Default for AppSettings {
@@ -150,8 +151,36 @@ impl Default for AppSettings {
             herdr_path: String::new(),
             terminal_command: String::new(),
             focus_terminal: true,
-            terminal_env: String::new(),
+            extra_env: String::new(),
         }
+    }
+}
+
+impl AppSettings {
+    /// `extra_env` の複数行テキストを `(KEY, VALUE)` の並びにする。
+    /// 空行と `#` 始まりの行は読み飛ばし、キーが空のものは捨てる。
+    pub fn env_pairs(&self) -> Vec<(String, String)> {
+        self.extra_env
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .filter_map(|line| {
+                let (key, value) = line.split_once('=')?;
+                let key = key.trim();
+                if key.is_empty() {
+                    return None;
+                }
+                Some((key.to_string(), value.trim().to_string()))
+            })
+            .collect()
+    }
+
+    /// `KEY=VALUE` 形式の並び。herdr の `--env` や Ghostty に渡すのに使う。
+    pub fn env_kv(&self) -> Vec<String> {
+        self.env_pairs()
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect()
     }
 }
 
@@ -225,6 +254,53 @@ mod tests {
         assert_eq!(
             req.to_args().unwrap(),
             vec!["create", "claude-vertex", "--name", "my-project"]
+        );
+    }
+
+    fn with_env(text: &str) -> AppSettings {
+        AppSettings {
+            extra_env: text.into(),
+            ..AppSettings::default()
+        }
+    }
+
+    #[test]
+    fn 環境変数の複数行テキストを解釈する() {
+        let s = with_env(
+            "
+            # コメントは無視する
+            ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project
+            CLOUD_ML_REGION = global
+
+            EMPTY=
+            =値だけ
+            値なし
+        ",
+        );
+
+        assert_eq!(
+            s.env_pairs(),
+            vec![
+                ("ANTHROPIC_VERTEX_PROJECT_ID".to_string(), "my-gcp-project".to_string()),
+                ("CLOUD_ML_REGION".to_string(), "global".to_string()),
+                ("EMPTY".to_string(), String::new()),
+            ]
+        );
+        assert_eq!(
+            s.env_kv(),
+            vec![
+                "ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project",
+                "CLOUD_ML_REGION=global",
+                "EMPTY=",
+            ]
+        );
+    }
+
+    #[test]
+    fn 値に等号が含まれていても壊れない() {
+        assert_eq!(
+            with_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com").env_kv(),
+            vec!["OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com"]
         );
     }
 
