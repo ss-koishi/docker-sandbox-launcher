@@ -23,12 +23,11 @@ cask "docker-sandbox-launcher" do
   end
 
   caveats <<~EOS
-    このアプリは #{Formatter.url("https://docs.docker.com/ai/sandboxes/")} の sbx CLI を呼び出します。
-    未導入なら次でインストールしてください:
+    このアプリは Docker Sandboxes の sbx CLI を呼び出します。未導入なら:
 
       brew install --cask docker/tap/sbx
 
-    Developer ID 署名・公証は行っていません。インストール時に quarantine 属性を外しています。
+    Developer ID 署名・公証は行っていないため、インストール時に quarantine 属性を外しています。
   EOS
 
   zap trash: [

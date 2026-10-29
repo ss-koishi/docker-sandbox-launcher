@@ -83,9 +83,17 @@ kit の `requires.agent` が選択中のエージェントと食い違う場合�
 ```sh
 npm install
 npm run tauri dev      # 開発起動
-npm run tauri build    # .app と .dmg を作る
 npm run check          # Svelte / TypeScript の型チェック
+cargo test --manifest-path src-tauri/Cargo.toml
+
+# 配布と同じ universal バイナリを作る
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+CI=true npm run tauri build -- --target universal-apple-darwin
 ```
+
+`CI=true` を付けているのは、DMG 作成時にウィンドウの体裁を整える Finder の AppleScript を
+飛ばすためです。付けないとターミナルに Finder の自動化許可がない環境で
+`AppleEventがタイムアウトしました (-1712)` で失敗します。CI 上では `CI` が自動で立つので不要です。
 
 Homebrew の rustup は keg-only なので、`cargo` を PATH に通しておく必要があります。
 
