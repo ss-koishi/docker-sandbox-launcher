@@ -37,10 +37,32 @@ export type CreateRequest = {
   kits: string[];
 };
 
+/** ターミナル連携先。`auto` は herdr が動いていれば herdr、無ければ Ghostty。 */
+export type TerminalTarget = 'auto' | 'herdr' | 'ghostty' | 'custom';
+
 export type AppSettings = {
   kits_dir: string;
   sbx_path: string;
   workspace_root: string;
+  terminal: TerminalTarget;
+  herdr_path: string;
+  /** `terminal` が `custom` のときのテンプレート。`{command}` を置換する。 */
+  terminal_command: string;
+  focus_terminal: boolean;
+};
+
+export type TerminalInfo = {
+  /** auto を解決した結果、実際に使われる連携先。 */
+  effective: Exclude<TerminalTarget, 'auto'>;
+  herdr_running: boolean;
+  herdr_path: string | null;
+  ghostty_installed: boolean;
+};
+
+export const TERMINAL_LABELS: Record<Exclude<TerminalTarget, 'auto'>, string> = {
+  herdr: 'herdr',
+  ghostty: 'Ghostty',
+  custom: 'カスタムコマンド'
 };
 
 export type SbxInfo = {

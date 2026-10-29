@@ -10,6 +10,7 @@ use crate::kits;
 use crate::model::{AppSettings, CreateRequest, Kit, Sandbox, SbxInfo};
 use crate::sbx::{LogLine, Sbx};
 use crate::settings;
+use crate::terminal::{self, TerminalInfo};
 
 /// GUI から投げてよいライフサイクル動詞と、常に付けるフラグ。
 ///
@@ -37,6 +38,10 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<AppSetting
         kits_dir: settings.kits_dir.trim().to_string(),
         sbx_path: settings.sbx_path.trim().to_string(),
         workspace_root: settings.workspace_root.trim().to_string(),
+        terminal: settings.terminal.trim().to_string(),
+        herdr_path: settings.herdr_path.trim().to_string(),
+        terminal_command: settings.terminal_command.trim().to_string(),
+        focus_terminal: settings.focus_terminal,
     };
     settings::save(&app, &normalized)?;
     Ok(normalized)
@@ -157,6 +162,38 @@ pub fn ensure_workspace_dir(app: AppHandle, name: String) -> Result<String, Stri
     std::fs::create_dir_all(&path)
         .map_err(|e| format!("{} を作成できませんでした: {e}", path.display()))?;
     Ok(path.display().to_string())
+}
+
+/// 設定画面に出す、ターミナル連携先の検出結果。
+#[tauri::command]
+pub fn detect_terminal(app: AppHandle) -> TerminalInfo {
+    terminal::info(&settings::load(&app))
+}
+
+/// sandbox をターミナルで開く。実際に使った連携先の名前を返す。
+#[tauri::command]
+pub async fn open_sandbox_terminal(
+    app: AppHandle,
+    name: String,
+    cwd: Option<String>,
+) -> Result<String, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("sandbox 名が空です".into());
+    }
+
+    blocking(move || {
+        let config = settings::load(&app);
+        let sbx = Sbx::locate(&config.sbx_path)?;
+        let argv = vec![
+            sbx.program().display().to_string(),
+            "run".into(),
+            "--name".into(),
+            name.clone(),
+        ];
+        terminal::open(&config, &name, cwd.as_deref(), &argv)
+    })
+    .await
 }
 
 #[tauri::command]

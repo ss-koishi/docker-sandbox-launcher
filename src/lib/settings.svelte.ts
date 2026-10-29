@@ -1,7 +1,16 @@
 import { getSettings, saveSettings } from './api';
 import type { AppSettings } from './types';
 
-const EMPTY: AppSettings = { kits_dir: '', sbx_path: '', workspace_root: '' };
+/** load() が終わるまでの仮の値。実際の既定値は Rust 側が持つ。 */
+const EMPTY: AppSettings = {
+  kits_dir: '',
+  sbx_path: '',
+  workspace_root: '',
+  terminal: 'auto',
+  herdr_path: '',
+  terminal_command: '',
+  focus_terminal: true
+};
 
 /** アプリ設定の単一のソース。各画面はここを読み、設定画面だけが書き換える。 */
 class SettingsStore {

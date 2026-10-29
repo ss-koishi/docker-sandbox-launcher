@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { errorMessage, listSandboxes, removeSandboxes } from '$lib/api';
-  import type { Sandbox } from '$lib/types';
+  import { errorMessage, listSandboxes, openSandboxTerminal, removeSandboxes } from '$lib/api';
+  import { TERMINAL_LABELS, type Sandbox, type TerminalInfo } from '$lib/types';
   import CreateSandboxModal from './CreateSandboxModal.svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
@@ -13,6 +13,10 @@
   let showCreate = $state(false);
   let removing = $state<Sandbox | null>(null);
   let removeBusy = $state(false);
+  /** ターミナルを開こうとしている sandbox 名。 */
+  let opening = $state<string | null>(null);
+  let openedNotice = $state<string | null>(null);
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   const visible = $derived.by(() => {
     const q = query.trim().toLowerCase();
@@ -25,7 +29,32 @@
     );
   });
 
-  onMount(() => void refresh());
+  onMount(() => {
+    void refresh();
+    return () => clearTimeout(noticeTimer);
+  });
+
+  /** `sbx run` を走らせるディレクトリ。primary workspace があればそこ。 */
+  function primaryWorkspace(sb: Sandbox): string | undefined {
+    const first = sb.workspaces[0];
+    return first ? mount(first).path : undefined;
+  }
+
+  async function openTerminal(sb: Sandbox) {
+    opening = sb.name;
+    openedNotice = null;
+    clearTimeout(noticeTimer);
+    try {
+      const used = (await openSandboxTerminal(sb.name, primaryWorkspace(sb))) as TerminalInfo['effective'];
+      error = null;
+      openedNotice = `${sb.name} を ${TERMINAL_LABELS[used] ?? used} で開きました`;
+      noticeTimer = setTimeout(() => (openedNotice = null), 6000);
+    } catch (e) {
+      error = errorMessage(e);
+    } finally {
+      opening = null;
+    }
+  }
 
   async function refresh() {
     loading = true;
@@ -96,6 +125,10 @@
   <p class="error">{error}</p>
 {/if}
 
+{#if openedNotice}
+  <p class="notice"><Icon name="check" size={16} /><span>{openedNotice}</span></p>
+{/if}
+
 <div class="surface table-wrap">
   {#if loading && sandboxes.length === 0}
     <p class="empty">読み込み中…</p>
@@ -145,6 +178,16 @@
             </td>
             <td class="muted nowrap">{formatDate(sb.created_at)}</td>
             <td class="actions">
+              <button
+                type="button"
+                class="icon"
+                onclick={() => openTerminal(sb)}
+                disabled={opening !== null}
+                title="ターミナルで開く (sbx run)"
+                aria-label="{sb.name} をターミナルで開く"
+              >
+                <Icon name="terminal" size={16} />
+              </button>
               <button
                 type="button"
                 class="icon danger"
@@ -199,6 +242,10 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
+  }
+
+  .notice {
+    margin: 0 0 12px;
   }
 
   .search {

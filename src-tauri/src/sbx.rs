@@ -23,37 +23,76 @@ pub struct Sbx {
     program: PathBuf,
 }
 
+/// 設定で明示されたパスを最優先し、なければ既知の場所から実行ファイルを探す。
+pub fn locate_program(name: &str, configured: &str) -> Result<PathBuf, String> {
+    let configured = configured.trim();
+    if !configured.is_empty() {
+        let path = PathBuf::from(configured);
+        if !is_executable(&path) {
+            return Err(format!(
+                "設定された {name} のパスが実行できません: {configured}"
+            ));
+        }
+        return Ok(path);
+    }
+
+    for dir in search_dirs() {
+        let candidate = dir.join(name);
+        if is_executable(&candidate) {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!(
+        "{name} が見つかりませんでした。設定画面でパスを指定してください（探索先: {}）",
+        search_dirs()
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
+}
+
+/// 補ったうえで子プロセスに渡す PATH を組み立てた [`Command`] を作る。
+pub fn command_for(program: &Path) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.env("PATH", augmented_path(program.parent()));
+    cmd.env("NO_COLOR", "1");
+    cmd.stdin(Stdio::null());
+    cmd
+}
+
+/// 標準出力を文字列で受け取る。終了コードが 0 以外なら stderr をエラーにする。
+pub fn output_of(program: &Path, args: &[&str]) -> Result<String, String> {
+    let label = program
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| program.display().to_string());
+
+    let out = command_for(program)
+        .args(args)
+        .output()
+        .map_err(|e| format!("{label} {} の起動に失敗しました: {e}", args.join(" ")))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if stderr.is_empty() { stdout } else { stderr };
+        return Err(format!(
+            "{label} {} が失敗しました: {detail}",
+            args.join(" ")
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
 impl Sbx {
     /// 設定で明示されたパスを最優先し、なければ既知の場所を順に探す。
     pub fn locate(configured: &str) -> Result<Self, String> {
-        let configured = configured.trim();
-        if !configured.is_empty() {
-            let path = PathBuf::from(configured);
-            if !is_executable(&path) {
-                return Err(format!(
-                    "設定された sbx のパスが実行できません: {configured}"
-                ));
-            }
-            return Ok(Self { program: path });
-        }
-
-        for dir in search_dirs() {
-            let candidate = dir.join("sbx");
-            if is_executable(&candidate) {
-                return Ok(Self {
-                    program: candidate,
-                });
-            }
-        }
-
-        Err(format!(
-            "sbx が見つかりませんでした。設定画面でパスを指定してください（探索先: {}）",
-            search_dirs()
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))
+        Ok(Self {
+            program: locate_program("sbx", configured)?,
+        })
     }
 
     pub fn program(&self) -> &Path {
@@ -61,30 +100,12 @@ impl Sbx {
     }
 
     fn command(&self) -> Command {
-        let mut cmd = Command::new(&self.program);
-        cmd.env("PATH", augmented_path(self.program.parent()));
-        // サブコマンドが対話的な確認を出さないようにしておく。
-        cmd.env("NO_COLOR", "1");
-        cmd.stdin(Stdio::null());
-        cmd
+        command_for(&self.program)
     }
 
     /// 標準出力を文字列で受け取る。終了コードが 0 以外なら stderr をエラーにする。
     pub fn output(&self, args: &[&str]) -> Result<String, String> {
-        let out = self
-            .command()
-            .args(args)
-            .output()
-            .map_err(|e| format!("sbx {} の起動に失敗しました: {e}", args.join(" ")))?;
-
-        if !out.status.success() {
-            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let detail = if stderr.is_empty() { stdout } else { stderr };
-            return Err(format!("sbx {} が失敗しました: {detail}", args.join(" ")));
-        }
-
-        Ok(String::from_utf8_lossy(&out.stdout).to_string())
+        output_of(&self.program, args)
     }
 
     /// `--format json` を付けて呼び、結果を型に落とす。
@@ -197,7 +218,7 @@ fn search_dirs() -> Vec<PathBuf> {
 }
 
 /// 子プロセス用の PATH。sbx 自身が docker などを呼ぶので Homebrew も通しておく。
-fn augmented_path(program_dir: Option<&Path>) -> String {
+pub fn augmented_path(program_dir: Option<&Path>) -> String {
     let mut parts: Vec<String> = Vec::new();
     if let Some(dir) = program_dir {
         parts.push(dir.display().to_string());

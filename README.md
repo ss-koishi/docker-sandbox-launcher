@@ -8,6 +8,7 @@ Tauri v2 + SvelteKit で作ってあり、配布物はシステムの WKWebView 
 - **サンドボックスの一覧** — `sbx ls` の内容（状態・エージェント・workspace・作成日時）をカード表示
 - **作成** — エージェント、sandbox 名、workspace、kits（mixin）を選んで `sbx create` を実行。進捗は逐次表示される
 - **削除** — 確認ダイアログののち `sbx rm --force`
+- **ターミナルで開く** — 一覧から `sbx run --name <名前>` を herdr / Ghostty で実行
 - **kits ディレクトリの設定** — kit を置いてあるディレクトリを GUI で指定し、配下の kit を一覧・spec を閲覧
 
 ## 必要なもの
@@ -25,6 +26,37 @@ Tauri v2 + SvelteKit で作ってあり、配布物はシステムの WKWebView 
 | kits ディレクトリ | `~/.sbx/kits` | 直下の「`spec.yml` を持つサブディレクトリ」を kit として列挙する |
 | workspace の作成先 | `~/sbx-workspaces` | 作成画面の「〜を作成して使う」が掘る親ディレクトリ |
 | sbx のパス | （自動検出） | 空なら PATH と Homebrew の標準的な場所から探す |
+| ターミナル連携 | 自動 | 端末ボタンの飛び先。下記参照 |
+
+### ターミナル連携
+
+sandbox 一覧の端末ボタンを押すと `sbx run --name <名前>` が実行されます。飛び先は 3 つから選べ、既定の「自動」は herdr サーバーが動いていれば herdr、そうでなければ Ghostty を使います。
+
+**herdr** — ソケット API で sandbox 名のワークスペースを作り、その pane でコマンドを走らせます。
+
+```sh
+herdr workspace create --label <名前> --cwd <workspace> --focus   # → root_pane.pane_id
+herdr pane run <pane_id> <sbx のパス> run --name <名前>
+```
+
+herdr のサーバーが pane を持つので、ターミナルを閉じてもセッションは残ります。herdr の TUI 自体は別のターミナル上で動くため、既定では開いたあと Ghostty を前面に出します（設定で切れます）。
+
+**Ghostty** — AppleScript で既存インスタンスに新しいウィンドウを開きます。
+
+```applescript
+tell application "Ghostty"
+  new window with configuration {command:"…", initial working directory:"…", wait after command:true}
+  activate
+end tell
+```
+
+macOS では `ghostty -e` が使えず、公式が案内する `open -na Ghostty.app --args -e …` は呼ぶたびに別インスタンスが増えるため、AppleScript を使っています。初回に「Docker Sandbox Launcher が Ghostty を制御しようとしています」という許可ダイアログが出ます（`src-tauri/Info.plist` の `NSAppleEventsUsageDescription` がその説明文です）。
+
+**カスタムコマンド** — `{command}` を含むテンプレートが `sh -c` に渡されます。
+
+```sh
+open -na Ghostty.app --args -e {command}
+```
 
 ### workspace の指定
 
@@ -59,6 +91,7 @@ fish_add_path /opt/homebrew/opt/rustup/bin
 ```
 src-tauri/src/
   sbx.rs        sbx CLI のラッパー（実行ファイル探索・JSON 取得・出力ストリーミング）
+  terminal.rs   herdr / Ghostty / カスタムコマンドへの橋渡し
   commands.rs   フロントから呼ぶ Tauri コマンド
   kits.rs       kits ディレクトリの走査と spec の読み取り
   model.rs      フロントと共有するデータ構造

@@ -6,7 +6,8 @@ import type {
   LifecycleVerb,
   LogLine,
   Sandbox,
-  SbxInfo
+  SbxInfo,
+  TerminalInfo
 } from './types';
 
 export const getSettings = () => invoke<AppSettings>('get_settings');
@@ -44,6 +45,15 @@ export const runLifecycle = (verb: LifecycleVerb, targets: string[]) =>
   invoke<string>('run_lifecycle', { verb, targets });
 
 export const removeSandboxes = (names: string[]) => runLifecycle('rm', names);
+
+export const detectTerminal = () => invoke<TerminalInfo>('detect_terminal');
+
+/**
+ * sandbox を `sbx run --name <name>` でターミナルに開く。
+ * 実際に使われた連携先（herdr / ghostty / custom）を返す。
+ */
+export const openSandboxTerminal = (name: string, cwd?: string) =>
+  invoke<string>('open_sandbox_terminal', { name, cwd: cwd ?? null });
 
 /** Tauri が投げてくるエラーは文字列なので、表示用に整える。 */
 export function errorMessage(e: unknown): string {

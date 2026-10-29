@@ -123,6 +123,14 @@ pub struct AppSettings {
     pub sbx_path: String,
     /// 「workspace を新規作成」したときの作成先。
     pub workspace_root: String,
+    /// ターミナル連携先。`auto` | `herdr` | `ghostty` | `custom`。
+    pub terminal: String,
+    /// herdr 実行ファイルのパス。空なら自動探索する。
+    pub herdr_path: String,
+    /// `terminal` が `custom` のときのコマンドテンプレート。`{command}` を置換する。
+    pub terminal_command: String,
+    /// herdr で開いたあと、Ghostty を前面に出すか。
+    pub focus_terminal: bool,
 }
 
 impl Default for AppSettings {
@@ -132,6 +140,10 @@ impl Default for AppSettings {
             kits_dir: join_home(&home, ".sbx/kits"),
             sbx_path: String::new(),
             workspace_root: join_home(&home, "sbx-workspaces"),
+            terminal: "auto".into(),
+            herdr_path: String::new(),
+            terminal_command: String::new(),
+            focus_terminal: true,
         }
     }
 }

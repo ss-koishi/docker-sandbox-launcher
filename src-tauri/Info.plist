@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Tauri がバンドル時に生成する Info.plist へマージされる追加キー。
+  Ghostty に AppleScript でウィンドウを開かせるために Apple Events を使うので、
+  用途の説明がないと macOS が送信を拒否する。
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>sandbox をターミナル (Ghostty) で開くために使用します。</string>
+  </dict>
+</plist>

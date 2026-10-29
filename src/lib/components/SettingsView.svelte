@@ -1,10 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { detectSbx, errorMessage } from '$lib/api';
+  import { detectSbx, detectTerminal, errorMessage } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
-  import type { AppSettings, SbxInfo } from '$lib/types';
+  import {
+    TERMINAL_LABELS,
+    type AppSettings,
+    type SbxInfo,
+    type TerminalInfo,
+    type TerminalTarget
+  } from '$lib/types';
   import Icon from './Icon.svelte';
   import PathInput from './PathInput.svelte';
+
+  const TERMINAL_OPTIONS: { value: TerminalTarget; label: string }[] = [
+    { value: 'auto', label: '自動（herdr が動いていれば herdr、なければ Ghostty）' },
+    { value: 'herdr', label: 'herdr（workspace を作成）' },
+    { value: 'ghostty', label: 'Ghostty（新しいウィンドウ）' },
+    { value: 'custom', label: 'カスタムコマンド' }
+  ];
+
+  const CUSTOM_PLACEHOLDER = 'open -na Ghostty.app --args -e {command}';
 
   type Props = {
     /** 設定が変わったら各画面を読み直してもらう。 */
@@ -24,13 +39,14 @@
 
   let sbx = $state<SbxInfo | null>(null);
   let sbxError = $state<string | null>(null);
+  let term = $state<TerminalInfo | null>(null);
 
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   const dirty = $derived(
-    draft.kits_dir !== settings.current.kits_dir ||
-      draft.sbx_path !== settings.current.sbx_path ||
-      draft.workspace_root !== settings.current.workspace_root
+    (Object.keys(draft) as (keyof AppSettings)[]).some(
+      (key) => draft[key] !== settings.current[key]
+    )
   );
 
   onMount(() => {
@@ -46,6 +62,7 @@
       sbx = null;
       sbxError = errorMessage(e);
     }
+    term = await detectTerminal().catch(() => null);
   }
 
   async function save() {
@@ -108,6 +125,63 @@
     {/if}
   </div>
 
+  <hr />
+
+  <div class="field">
+    <span class="label">ターミナル連携</span>
+    <select bind:value={draft.terminal}>
+      {#each TERMINAL_OPTIONS as opt (opt.value)}
+        <option value={opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+    <span class="hint">
+      sandbox 一覧の端末ボタンから <code>sbx run --name &lt;名前&gt;</code> を実行する先です。
+      {#if term}
+        現在の宛先: <strong>{TERMINAL_LABELS[term.effective] ?? term.effective}</strong>
+        （herdr: {term.herdr_running ? '稼働中' : '停止'} ／ Ghostty:
+        {term.ghostty_installed ? '導入済み' : '未検出'}）
+      {/if}
+    </span>
+  </div>
+
+  {#if draft.terminal === 'auto' || draft.terminal === 'herdr'}
+    <div class="field">
+      <span class="label">herdr のパス</span>
+      <input type="text" bind:value={draft.herdr_path} spellcheck="false" placeholder="（自動検出）" />
+      <span class="hint">
+        sandbox 名のワークスペースを作り、その pane で sbx run を実行します。
+        {#if term?.herdr_path}
+          現在: <code>{term.herdr_path}</code>
+        {/if}
+      </span>
+    </div>
+
+    <label class="field checkbox">
+      <input type="checkbox" bind:checked={draft.focus_terminal} />
+      <span>
+        herdr で開いたあと Ghostty を前面に出す
+        <span class="hint">
+          herdr の TUI は別のターミナル上で動くため、見える場所まで持ち上げます。Ghostty 以外を使っている場合は外してください。
+        </span>
+      </span>
+    </label>
+  {/if}
+
+  {#if draft.terminal === 'custom'}
+    <div class="field">
+      <span class="label">カスタムコマンド</span>
+      <input
+        type="text"
+        bind:value={draft.terminal_command}
+        spellcheck="false"
+        placeholder={CUSTOM_PLACEHOLDER}
+      />
+      <span class="hint">
+        <code>{'{command}'}</code> が実行するコマンドに置き換わり、<code>sh -c</code> に渡されます。
+      </span>
+    </div>
+  {/if}
+
   {#if error}
     <p class="error">{error}</p>
   {/if}
@@ -149,6 +223,29 @@
 
   .notice {
     margin: 0 0 14px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 4px 0 18px;
+  }
+
+  .checkbox {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .checkbox input {
+    margin-top: 3px;
+  }
+
+  .checkbox .hint {
+    display: block;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .actions {

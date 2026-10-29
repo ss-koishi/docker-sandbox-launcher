@@ -3,6 +3,7 @@ mod kits;
 mod model;
 mod sbx;
 mod settings;
+mod terminal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +20,8 @@ pub fn run() {
             commands::read_kit_spec,
             commands::create_sandbox,
             commands::run_lifecycle,
+            commands::detect_terminal,
+            commands::open_sandbox_terminal,
             commands::ensure_workspace_dir,
             commands::path_exists,
         ])
