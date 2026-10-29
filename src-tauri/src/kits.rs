@@ -88,3 +88,94 @@ impl Kit {
             .unwrap_or(&self.id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// テスト用の使い捨てディレクトリ。drop で消す。
+    struct TempDir(std::path::PathBuf);
+
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "dsl-test-{tag}-{}-{:?}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn kit(&self, name: &str, spec: Option<&str>) {
+            let dir = self.0.join(name);
+            std::fs::create_dir_all(&dir).unwrap();
+            if let Some(spec) = spec {
+                std::fs::write(dir.join("spec.yml"), spec).unwrap();
+            }
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn spec_のあるディレクトリだけを_kit_として返す() {
+        let tmp = TempDir::new("scan");
+        tmp.kit(
+            "aws",
+            Some("schemaVersion: \"2\"\nkind: mixin\nname: aws-cli\ndisplayName: AWS CLI\n"),
+        );
+        // spec を持たないので kit ではない。
+        tmp.kit("files", None);
+        // ドット始まりは無視する。
+        tmp.kit(".hidden", Some("kind: mixin\nname: hidden\n"));
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+
+        assert_eq!(kits.len(), 1);
+        assert_eq!(kits[0].id, "aws");
+        assert_eq!(kits[0].kind.as_deref(), Some("mixin"));
+        assert_eq!(kits[0].display_name.as_deref(), Some("AWS CLI"));
+        assert_eq!(kits[0].label(), "AWS CLI");
+        assert!(kits[0].error.is_none());
+    }
+
+    #[test]
+    fn requires_が_v3_のリスト形式でも壊れない() {
+        let tmp = TempDir::new("requires");
+        tmp.kit("v2", Some("kind: mixin\nname: v2\nrequires:\n  agent: claude-vertex\n"));
+        tmp.kit("v3", Some("kind: mixin\nname: v3\nrequires: [gojq]\n"));
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        let by_id = |id: &str| kits.iter().find(|k| k.id == id).unwrap().clone();
+
+        assert_eq!(by_id("v2").requires_agent.as_deref(), Some("claude-vertex"));
+        assert_eq!(by_id("v3").requires_agent, None);
+    }
+
+    #[test]
+    fn 壊れた_spec_は_error_を付けて返す() {
+        let tmp = TempDir::new("broken");
+        tmp.kit("bad", Some("kind: mixin\n  name: [unbalanced\n"));
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+
+        assert_eq!(kits.len(), 1);
+        assert!(kits[0].error.is_some());
+        // 名前が読めなくてもディレクトリ名で表示できる。
+        assert_eq!(kits[0].label(), "bad");
+    }
+
+    #[test]
+    fn ディレクトリが無ければエラーになる() {
+        assert!(scan("/no/such/kits/dir").is_err());
+        assert!(scan("  ").is_err());
+    }
+}

@@ -111,21 +111,7 @@ pub async fn create_sandbox(
     request: CreateRequest,
     on_log: Channel<LogLine>,
 ) -> Result<(), String> {
-    let name = request.name.trim().to_string();
-    let agent = request.agent.trim().to_string();
-    if name.is_empty() {
-        return Err("sandbox 名を入力してください".into());
-    }
-    if agent.is_empty() {
-        return Err("エージェント（または kit 参照）を選んでください".into());
-    }
-
-    let mut args: Vec<String> = vec!["create".into(), agent, "--name".into(), name];
-    args.extend(request.workspaces.iter().map(|w| w.to_arg()));
-    for kit in &request.kits {
-        args.push("--kit".into());
-        args.push(kit.clone());
-    }
+    let args = request.to_args()?;
 
     blocking(move || {
         let cli = sbx(&app)?;

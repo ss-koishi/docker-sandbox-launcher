@@ -92,6 +92,12 @@ impl Sbx {
         let mut full = args.to_vec();
         full.extend_from_slice(&["--format", "json"]);
         let stdout = self.output(&full)?;
+        // 対象が 0 件のとき、サブコマンドによっては何も出力しない。
+        let stdout = if stdout.trim().is_empty() {
+            "null".to_string()
+        } else {
+            stdout
+        };
         serde_json::from_str(&stdout)
             .map_err(|e| format!("sbx {} の JSON を解釈できませんでした: {e}", args.join(" ")))
     }
