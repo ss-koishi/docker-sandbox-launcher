@@ -11,10 +11,18 @@ Tauri v2 + SvelteKit で作ってあり、配布物はシステムの WKWebView 
 - **ターミナルで開く** — 一覧から `sbx run --name <名前>` を herdr / Ghostty で実行
 - **kits ディレクトリの設定** — kit を置いてあるディレクトリを GUI で指定し、配下の kit を一覧・spec を閲覧
 
+## インストール
+
+```sh
+brew install --cask ss-koishi/tap/docker-sandbox-launcher
+```
+
+Developer ID 署名・公証は行っていないため、cask の `postflight` が quarantine 属性を外します。
+
 ## 必要なもの
 
-- macOS
-- [`sbx` CLI](https://docs.docker.com/ai/sandboxes/install/)（`brew install sbx` 等）
+- macOS 11 以降
+- [`sbx` CLI](https://docs.docker.com/ai/sandboxes/install/) — `brew install --cask docker/tap/sbx`
 - 開発するなら Node.js と Rust ツールチェーン
 
 ## 使い方
@@ -85,6 +93,46 @@ Homebrew の rustup は keg-only なので、`cargo` を PATH に通しておく
 # ~/.config/fish/config.fish
 fish_add_path /opt/homebrew/opt/rustup/bin
 ```
+
+## リリースと配布
+
+`v0.1.0` のようなタグを push すると `.github/workflows/release.yml` が動き、
+
+1. タグと `src-tauri/tauri.conf.json` の `version` の一致を確認する
+2. 型チェックと `cargo test` を走らせる
+3. `--target universal-apple-darwin` でビルドし、GitHub Release に `.dmg` を添付する
+4. `packaging/cask.rb.tmpl` に version と sha256 を埋めて、tap の `Casks/` へ push する
+
+という流れになります。tap が未作成でも 3 までは成功します。
+
+### 初回だけ必要な準備
+
+```sh
+# 1. アプリ本体のリポジトリ（public）
+git remote add origin git@github.com:ss-koishi/docker-sandbox-launcher.git
+git push -u origin main
+
+# 2. tap のリポジトリ（public、名前は homebrew- 始まりが必須）
+#    中身は空でよい。ワークフローが Casks/ を作る
+```
+
+GitHub Actions の `GITHUB_TOKEN` は別リポジトリへ push できないので、tap 更新用に
+**`TAP_GITHUB_TOKEN`** を Secrets に登録します。`ss-koishi/homebrew-tap` への `contents: write`
+を持つ fine-grained personal access token を作ってください。
+
+### 署名・公証を入れる場合
+
+Apple Developer Program に加入して Developer ID Application 証明書を用意したら、次の Secrets を
+足して `tauri-apps/tauri-action` のステップに `env` として渡すだけで有効になります。
+
+| Secret | 内容 |
+| --- | --- |
+| `APPLE_CERTIFICATE` | `.p12` を base64 にしたもの |
+| `APPLE_CERTIFICATE_PASSWORD` | `.p12` のパスワード |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: ...` |
+| `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | 公証 (notarytool) 用 |
+
+そのうえで `packaging/cask.rb.tmpl` の `postflight` ブロックを削除します。
 
 ## 構成
 

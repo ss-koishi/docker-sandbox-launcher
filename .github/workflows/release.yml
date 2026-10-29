@@ -1,0 +1,131 @@
+name: release
+
+# v0.1.0 のようなタグを push するとリリースを作り、tap の cask を更新する。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'リリースするタグ (例: v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAP_REPOSITORY: ss-koishi/homebrew-tap
+  CASK_TOKEN: docker-sandbox-launcher
+
+jobs:
+  build:
+    runs-on: macos-14
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: タグと tauri.conf.json の version が一致するか確認
+        id: meta
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+          manifest=$(jq -r .version src-tauri/tauri.conf.json)
+          if [ "$version" != "$manifest" ]; then
+            echo "::error::タグ ($version) と tauri.conf.json ($manifest) の version が一致しません"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - run: npm run check
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      # 署名も公証もしていない。利用者側の Gatekeeper 対策は cask の
+      # postflight で quarantine 属性を外すことで行う。
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ steps.meta.outputs.tag }}
+          releaseName: ${{ steps.meta.outputs.tag }}
+          releaseDraft: false
+          prerelease: false
+          args: --target universal-apple-darwin
+
+  cask:
+    needs: build
+    runs-on: ubuntu-latest
+    # tap が未作成でもリリース自体は成功させたいので、失敗を許容する。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dmg を取得して sha256 を計算
+        id: asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.dmg' --dir dist
+          dmg=$(ls dist/*.dmg | head -1)
+          echo "file=$(basename "$dmg")" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: tap を checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TAP_REPOSITORY }}
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: tap
+
+      - name: cask を生成
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          SHA256: ${{ steps.asset.outputs.sha256 }}
+          DMG: ${{ steps.asset.outputs.file }}
+        run: |
+          set -euo pipefail
+          mkdir -p tap/Casks
+          # dmg 名に含まれるバージョンは cask 側で #{version} に戻し、
+          # 次のリリースでも URL がそのまま使えるようにする。
+          url_file=${DMG//$VERSION/\#\{version\}}
+          sed \
+            -e "s|@@VERSION@@|$VERSION|g" \
+            -e "s|@@SHA256@@|$SHA256|g" \
+            -e "s|@@DMG@@|$url_file|g" \
+            -e "s|@@REPOSITORY@@|$GITHUB_REPOSITORY|g" \
+            packaging/cask.rb.tmpl > "tap/Casks/${CASK_TOKEN}.rb"
+          cat "tap/Casks/${CASK_TOKEN}.rb"
+
+      - name: tap に push
+        working-directory: tap
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "Casks/${CASK_TOKEN}.rb"
+          git diff --cached --quiet && exit 0
+          git commit -m "${CASK_TOKEN} ${VERSION}"
+          git push

@@ -1,0 +1,41 @@
+# Homebrew Cask のテンプレート。
+# .github/workflows/release.yml が @@...@@ を埋めて
+# ss-koishi/homebrew-tap の Casks/ へ push する。手で編集するならこちら側を直すこと。
+cask "docker-sandbox-launcher" do
+  version "@@VERSION@@"
+  sha256 "@@SHA256@@"
+
+  url "https://github.com/@@REPOSITORY@@/releases/download/v#{version}/@@DMG@@"
+  name "Docker Sandbox Launcher"
+  desc "GUI launcher for Docker Sandboxes (sbx)"
+  homepage "https://github.com/@@REPOSITORY@@"
+
+  depends_on macos: ">= :big_sur"
+
+  app "Docker Sandbox Launcher.app"
+
+  # Developer ID 署名も公証もしていないため、そのままでは Gatekeeper に
+  # 「壊れているため開けません」と弾かれる。quarantine 属性を外しておく。
+  # 署名・公証を入れたらこのブロックごと削除してよい。
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Docker Sandbox Launcher.app"]
+  end
+
+  caveats <<~EOS
+    このアプリは #{Formatter.url("https://docs.docker.com/ai/sandboxes/")} の sbx CLI を呼び出します。
+    未導入なら次でインストールしてください:
+
+      brew install --cask docker/tap/sbx
+
+    Developer ID 署名・公証は行っていません。インストール時に quarantine 属性を外しています。
+  EOS
+
+  zap trash: [
+    "~/Library/Application Support/dev.ss-koishi.docker-sandbox-launcher",
+    "~/Library/Caches/dev.ss-koishi.docker-sandbox-launcher",
+    "~/Library/HTTPStorages/dev.ss-koishi.docker-sandbox-launcher",
+    "~/Library/Saved Application State/dev.ss-koishi.docker-sandbox-launcher.savedState",
+    "~/Library/WebKit/dev.ss-koishi.docker-sandbox-launcher",
+  ]
+end
