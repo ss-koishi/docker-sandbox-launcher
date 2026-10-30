@@ -182,18 +182,19 @@
 
 <style>
   .head {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-group);
   }
 
   .head code {
     word-break: break-all;
   }
 
+  /* ツールバーは直下のテーブルを操作するものなので、表にくっつける。 */
   .toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-snug);
   }
 
   .btn-inner {
@@ -244,8 +245,8 @@
   }
 
   .spec {
-    margin: 10px 0;
-    padding: 12px;
+    margin: 0 0 14px;
+    padding: 14px 16px;
     max-height: 340px;
     overflow: auto;
     background: var(--content-bg);

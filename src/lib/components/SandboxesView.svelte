@@ -233,19 +233,21 @@
 {/if}
 
 <style>
+  /* 見出しはページの導入。ツールバー以下の操作群とは距離を置く。 */
   .head {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-group);
   }
 
+  /* ツールバーは直下のテーブルを操作するものなので、表にくっつける。 */
   .toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-snug);
   }
 
   .notice {
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-snug);
   }
 
   .search {
@@ -282,13 +284,13 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
 
   .mounts li {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
   }
 
   .mounts code {

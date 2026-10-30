@@ -117,10 +117,10 @@
   .topbar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     height: var(--header-height);
     /* 左は信号機ボタンの分を空ける。 */
-    padding: 0 12px 0 80px;
+    padding: 0 14px 0 84px;
     background: var(--header-bg);
     border-bottom: 1px solid var(--border);
     flex: none;
@@ -129,7 +129,7 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
   }
 
   .wordmark {
@@ -156,20 +156,21 @@
   .sidebar {
     width: var(--sidebar-width);
     flex: none;
-    padding: 10px 8px;
+    padding: 14px 10px;
     background: var(--sidebar-bg);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
 
   .nav {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     width: 100%;
-    padding: 7px 10px;
+    padding: 9px 11px;
+    min-height: 0;
     border: none;
     background: none;
     border-radius: var(--radius);
@@ -193,7 +194,7 @@
     flex: 1;
     min-width: 0;
     overflow: auto;
-    padding: 20px 24px 28px;
+    padding: 26px 28px 40px;
     background: var(--content-bg);
   }
 </style>

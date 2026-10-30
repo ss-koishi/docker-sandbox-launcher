@@ -97,91 +97,113 @@
 </div>
 
 <section class="surface card">
-  <div class="field">
-    <span class="label">kits ディレクトリ</span>
-    <PathInput bind:value={draft.kits_dir} title="kits ディレクトリを選択" />
-    <span class="hint">
-      直下のサブディレクトリのうち spec.yml を持つものを kit として扱い、sandbox 作成時の選択肢に出します。
-    </span>
-  </div>
+  <div class="section">
+    <h2 class="section-title">場所</h2>
 
-  <div class="field">
-    <span class="label">workspace の作成先</span>
-    <PathInput bind:value={draft.workspace_root} title="workspace の作成先を選択" />
-    <span class="hint">作成画面の「〜を作成して使う」でディレクトリを掘る親ディレクトリです。</span>
-  </div>
-
-  <div class="field">
-    <span class="label">sbx のパス</span>
-    <input type="text" bind:value={draft.sbx_path} spellcheck="false" placeholder="（自動検出）" />
-    <span class="hint">
-      空にすると PATH と Homebrew の標準的な場所から探します。
-      {#if sbx}
-        現在: <code>{sbx.path}</code>（{sbx.version}）
-      {/if}
-    </span>
-    {#if sbxError}
-      <span class="hint danger">{sbxError}</span>
-    {/if}
-  </div>
-
-  <hr />
-
-  <div class="field">
-    <span class="label">ターミナル連携</span>
-    <select bind:value={draft.terminal}>
-      {#each TERMINAL_OPTIONS as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
-    <span class="hint">
-      sandbox 一覧の端末ボタンから <code>sbx run --name &lt;名前&gt;</code> を実行する先です。
-      {#if term}
-        現在の宛先: <strong>{TERMINAL_LABELS[term.effective] ?? term.effective}</strong>
-        （herdr: {term.herdr_running ? '稼働中' : '停止'} ／ Ghostty:
-        {term.ghostty_installed ? '導入済み' : '未検出'}）
-      {/if}
-    </span>
-  </div>
-
-  {#if draft.terminal === 'auto' || draft.terminal === 'herdr'}
     <div class="field">
-      <span class="label">herdr のパス</span>
-      <input type="text" bind:value={draft.herdr_path} spellcheck="false" placeholder="（自動検出）" />
+      <span class="label">kits ディレクトリ</span>
+      <PathInput bind:value={draft.kits_dir} title="kits ディレクトリを選択" />
       <span class="hint">
-        sandbox 名のワークスペースを作り、その pane で sbx run を実行します。
-        {#if term?.herdr_path}
-          現在: <code>{term.herdr_path}</code>
+        直下のサブディレクトリのうち spec.yml を持つものを kit として扱い、sandbox
+        作成時の選択肢に出します。
+      </span>
+    </div>
+
+    <div class="field">
+      <span class="label">workspace の作成先</span>
+      <PathInput bind:value={draft.workspace_root} title="workspace の作成先を選択" />
+      <span class="hint">作成画面の「〜を作成して使う」でディレクトリを掘る親ディレクトリです。</span>
+    </div>
+
+    <div class="field">
+      <span class="label">sbx のパス</span>
+      <input type="text" bind:value={draft.sbx_path} spellcheck="false" placeholder="（自動検出）" />
+      <span class="hint">
+        空にすると PATH と Homebrew の標準的な場所から探します。
+        {#if sbx}
+          現在: <code>{sbx.path}</code>（{sbx.version}）
+        {/if}
+      </span>
+      {#if sbxError}
+        <span class="hint danger">{sbxError}</span>
+      {/if}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">ターミナル連携</h2>
+
+    <div class="field">
+      <span class="label">開く先</span>
+      <select bind:value={draft.terminal}>
+        {#each TERMINAL_OPTIONS as opt (opt.value)}
+          <option value={opt.value}>{opt.label}</option>
+        {/each}
+      </select>
+      <span class="hint">
+        sandbox 一覧の端末ボタンから <code>sbx run --name &lt;名前&gt;</code> を実行する先です。
+        {#if term}
+          現在の宛先: <strong>{TERMINAL_LABELS[term.effective] ?? term.effective}</strong>
+          （herdr: {term.herdr_running ? '稼働中' : '停止'} ／ Ghostty:
+          {term.ghostty_installed ? '導入済み' : '未検出'}）
         {/if}
       </span>
     </div>
 
-    <label class="field checkbox">
-      <input type="checkbox" bind:checked={draft.focus_terminal} />
-      <span>
-        herdr で開いたあと Ghostty を前面に出す
-        <span class="hint">
-          herdr の TUI は別のターミナル上で動くため、見える場所まで持ち上げます。Ghostty 以外を使っている場合は外してください。
-        </span>
-      </span>
-    </label>
-  {/if}
+    <!-- 開く先の選択に従属する項目なので、入れ子にして親との関係を示す。 -->
+    {#if draft.terminal === 'auto' || draft.terminal === 'herdr'}
+      <div class="subgroup">
+        <div class="field">
+          <span class="label">herdr のパス</span>
+          <input
+            type="text"
+            bind:value={draft.herdr_path}
+            spellcheck="false"
+            placeholder="（自動検出）"
+          />
+          <span class="hint">
+            sandbox 名のワークスペースを作り、その pane で sbx run を実行します。
+            {#if term?.herdr_path}
+              現在: <code>{term.herdr_path}</code>
+            {/if}
+          </span>
+        </div>
 
-  {#if draft.terminal === 'custom'}
-    <div class="field">
-      <span class="label">カスタムコマンド</span>
-      <input
-        type="text"
-        bind:value={draft.terminal_command}
-        spellcheck="false"
-        placeholder={CUSTOM_PLACEHOLDER}
-      />
-      <span class="hint">
-        <code>{'{command}'}</code> が実行するコマンドに置き換わり、<code>sh -c</code> に渡されます。
-      </span>
-    </div>
-  {/if}
+        <label class="field checkbox">
+          <input type="checkbox" bind:checked={draft.focus_terminal} />
+          <span>
+            herdr で開いたあと Ghostty を前面に出す
+            <span class="hint">
+              herdr の TUI は別のターミナル上で動くため、見える場所まで持ち上げます。Ghostty
+              以外を使っている場合は外してください。
+            </span>
+          </span>
+        </label>
+      </div>
+    {/if}
 
+    {#if draft.terminal === 'custom'}
+      <div class="subgroup">
+        <div class="field">
+          <span class="label">カスタムコマンド</span>
+          <input
+            type="text"
+            bind:value={draft.terminal_command}
+            spellcheck="false"
+            placeholder={CUSTOM_PLACEHOLDER}
+          />
+          <span class="hint">
+            <code>{'{command}'}</code> が実行するコマンドに置き換わり、<code>sh -c</code>
+            に渡されます。
+          </span>
+        </div>
+      </div>
+    {/if}
+  </div>
+</section>
+
+<!-- 保存は設定そのものではなく、設定に対する操作。カードの外に出す。 -->
+<div class="footer">
   {#if error}
     <p class="error">{error}</p>
   {/if}
@@ -205,50 +227,51 @@
       <span class="muted">未保存の変更があります</span>
     {/if}
   </div>
-</section>
+</div>
 
 <style>
   .head {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-group);
   }
 
   .card {
-    padding: 20px;
-    max-width: 640px;
+    padding: 24px 26px;
+    max-width: 660px;
   }
 
   .hint.danger {
     color: var(--red);
   }
 
-  .notice {
-    margin: 0 0 14px;
+  /* 操作群はカードから距離を取り、別のかたまりとして見せる。 */
+  .footer {
+    max-width: 660px;
+    margin-top: var(--space-gap);
   }
 
-  hr {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 4px 0 18px;
+  .notice {
+    margin: 0 0 var(--space-snug);
   }
 
   .checkbox {
     flex-direction: row;
     align-items: flex-start;
-    gap: 8px;
+    gap: 9px;
   }
 
   .checkbox input {
-    margin-top: 3px;
+    margin-top: 4px;
   }
 
   .checkbox .hint {
     display: block;
+    margin-top: 3px;
     color: var(--text-dim);
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
   .actions {
-    margin-top: 4px;
+    gap: 10px;
   }
 </style>

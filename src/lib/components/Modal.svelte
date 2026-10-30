@@ -69,8 +69,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 14px;
+    padding: 15px 18px;
     border-bottom: 1px solid var(--border);
   }
 
@@ -81,19 +81,23 @@
   }
 
   .body {
-    padding: 18px 20px;
+    padding: 22px 24px;
     overflow: auto;
   }
 
   .body :global(p) {
-    margin: 0 0 10px;
+    margin: 0 0 12px;
+  }
+
+  .body :global(p:last-child) {
+    margin-bottom: 0;
   }
 
   footer {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 14px 18px;
     border-top: 1px solid var(--border);
   }
 </style>

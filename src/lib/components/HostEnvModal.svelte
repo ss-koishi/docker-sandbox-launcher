@@ -56,7 +56,7 @@ CLOUD_ML_REGION=global`;
   {#if loading}
     <p class="muted">読み込み中…</p>
   {:else}
-    <div class="field">
+    <div class="field editor">
       <textarea bind:value={content} spellcheck="false" rows="12" placeholder={PLACEHOLDER}
       ></textarea>
       <span class="hint">
@@ -98,10 +98,15 @@ CLOUD_ML_REGION=global`;
 </Modal>
 
 <style>
+  /* 入力と、その結果であるキー一覧は一続き。間を詰めて因果を見せる。 */
+  .editor {
+    margin-bottom: var(--space-snug);
+  }
+
   .keys {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
   }
 
   .notice.warn {

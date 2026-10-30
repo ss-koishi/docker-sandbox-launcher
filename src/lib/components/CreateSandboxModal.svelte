@@ -107,142 +107,154 @@
     <p class="error">{loadError}</p>
   {/if}
 
-  <div class="field">
-    <span class="label">エージェント</span>
-    <select bind:value={agentChoice} disabled={running}>
-      {#each agents as a (a)}
-        <option value={a}>{a}</option>
-      {/each}
-      <option value={CUSTOM}>（kit 参照を直接指定）</option>
-    </select>
-    {#if agentChoice === CUSTOM}
+  <!-- 何を作るか -->
+  <div class="section">
+    <div class="field">
+      <span class="label">エージェント</span>
+      <select bind:value={agentChoice} disabled={running}>
+        {#each agents as a (a)}
+          <option value={a}>{a}</option>
+        {/each}
+        <option value={CUSTOM}>（kit 参照を直接指定）</option>
+      </select>
+      {#if agentChoice === CUSTOM}
+        <input
+          type="text"
+          bind:value={customRef}
+          disabled={running}
+          spellcheck="false"
+          placeholder="./my-kit, docker.io/org/kit:1.0.0, git+https://…"
+        />
+      {/if}
+      <span class="hint">sandbox の土台になる workload です。</span>
+    </div>
+
+    <div class="field">
+      <span class="label">sandbox 名</span>
       <input
         type="text"
-        bind:value={customRef}
+        bind:value={name}
         disabled={running}
         spellcheck="false"
-        placeholder="./my-kit, docker.io/org/kit:1.0.0, git+https://…"
+        placeholder="my-project"
       />
-    {/if}
-    <span class="hint">sandbox の土台になる workload です。</span>
-  </div>
-
-  <div class="field">
-    <span class="label">sandbox 名</span>
-    <input
-      type="text"
-      bind:value={name}
-      disabled={running}
-      spellcheck="false"
-      placeholder="my-project"
-    />
-    {#if name.trim() && !nameValid}
-      <span class="hint danger">
-        2 文字以上で、英数字から始まり、英数字・ハイフン・ピリオドのみが使えます。
-      </span>
-    {/if}
-  </div>
-
-  <div class="field">
-    <span class="label">workspace（primary）</span>
-    <PathInput bind:value={primary} disabled={running} placeholder="~/sbx-workspaces/my-project" />
-    <div class="row">
-      <button type="button" onclick={makeWorkspaceDir} disabled={running || !nameValid}>
-        {settings.current.workspace_root}/{name.trim() || '<名前>'} を作成して使う
-      </button>
+      {#if name.trim() && !nameValid}
+        <span class="hint danger">
+          2 文字以上で、英数字から始まり、英数字・ハイフン・ピリオドのみが使えます。
+        </span>
+      {/if}
     </div>
-    <span class="hint">
-      sandbox 内にもホストと同じ絶対パスでマウントされます。空にすると bind mount なしで作成します。
-    </span>
   </div>
 
-  <div class="field">
-    <span class="label">追加マウント</span>
-    {#each extras as _mount, i (i)}
-      <div class="row mount">
-        <PathInput bind:value={extras[i].path} disabled={running} />
-        <label class="ro">
-          <input type="checkbox" bind:checked={extras[i].readonly} disabled={running} />
-          読み取り専用
-        </label>
-        <button
-          type="button"
-          class="icon danger"
-          onclick={() => (extras = extras.filter((_, j) => j !== i))}
-          disabled={running}
-          aria-label="この行を削除"
-        >
-          <Icon name="close" size={15} />
+  <!-- どこで動かすか -->
+  <div class="section">
+    <div class="field">
+      <span class="label">workspace（primary）</span>
+      <PathInput bind:value={primary} disabled={running} placeholder="~/sbx-workspaces/my-project" />
+      <div class="row">
+        <button type="button" onclick={makeWorkspaceDir} disabled={running || !nameValid}>
+          {settings.current.workspace_root}/{name.trim() || '<名前>'} を作成して使う
         </button>
       </div>
-    {/each}
-    <div class="row">
-      <button
-        type="button"
-        onclick={() => (extras = [...extras, { path: '', readonly: true }])}
-        disabled={running}
-      >
-        <span class="btn-inner"><Icon name="plus" size={15} /> ディレクトリを追加</span>
-      </button>
+      <span class="hint">
+        sandbox 内にもホストと同じ絶対パスでマウントされます。空にすると bind mount なしで作成します。
+      </span>
+    </div>
+
+    <div class="field">
+      <span class="label">追加マウント</span>
+      {#each extras as _mount, i (i)}
+        <div class="row mount">
+          <PathInput bind:value={extras[i].path} disabled={running} />
+          <label class="ro">
+            <input type="checkbox" bind:checked={extras[i].readonly} disabled={running} />
+            読み取り専用
+          </label>
+          <button
+            type="button"
+            class="icon danger"
+            onclick={() => (extras = extras.filter((_, j) => j !== i))}
+            disabled={running}
+            aria-label="この行を削除"
+          >
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      {/each}
+      <div class="row">
+        <button
+          type="button"
+          onclick={() => (extras = [...extras, { path: '', readonly: true }])}
+          disabled={running}
+        >
+          <span class="btn-inner"><Icon name="plus" size={15} /> ディレクトリを追加</span>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="field">
-    <span class="label">kits（mixin）</span>
-    {#if mixins.length === 0}
-      <span class="hint">
-        {settings.current.kits_dir} に kit が見つかりません。設定からディレクトリを確認してください。
-      </span>
-    {:else}
-      <div class="kits">
-        {#each mixins as kit (kit.path)}
-          <label class="kit">
-            <input
-              type="checkbox"
-              checked={selected.includes(kit.path)}
-              onchange={() => toggleKit(kit.path)}
-              disabled={running}
-            />
-            <span class="kit-name">{kitLabel(kit)}</span>
-            <code class="muted">{kit.id}</code>
-            {#if kit.requires_agent}
-              <span class="chip" class:warning={kit.requires_agent !== agent}>
-                requires: {kit.requires_agent}
-              </span>
-            {/if}
-            {#each kit.host_env_keys as key (key)}
-              <span class="chip accent">{key}</span>
-            {/each}
-          </label>
-        {/each}
-      </div>
-    {/if}
-    {#if hostEnvKeys.length > 0}
-      <span class="hint">
-        選択中の kit が host-env でホスト側の環境変数を渡します:
-        {hostEnvKeys.join('、')}
-      </span>
-    {/if}
-    {#if conflicts.length > 0}
-      <span class="hint warning">
-        選択中の kit が別のエージェントを要求しています（{conflicts
-          .map((k) => `${kitLabel(k)} → ${k.requires_agent}`)
-          .join('、')}）。作成時に sbx 側で弾かれる可能性があります。
-      </span>
-    {/if}
+  <!-- 何を足すか -->
+  <div class="section">
+    <div class="field">
+      <span class="label">kits（mixin）</span>
+      {#if mixins.length === 0}
+        <span class="hint">
+          {settings.current.kits_dir} に kit が見つかりません。設定からディレクトリを確認してください。
+        </span>
+      {:else}
+        <div class="kits">
+          {#each mixins as kit (kit.path)}
+            <label class="kit">
+              <input
+                type="checkbox"
+                checked={selected.includes(kit.path)}
+                onchange={() => toggleKit(kit.path)}
+                disabled={running}
+              />
+              <span class="kit-name">{kitLabel(kit)}</span>
+              <code class="muted">{kit.id}</code>
+              {#if kit.requires_agent}
+                <span class="chip" class:warning={kit.requires_agent !== agent}>
+                  requires: {kit.requires_agent}
+                </span>
+              {/if}
+              {#each kit.host_env_keys as key (key)}
+                <span class="chip accent">{key}</span>
+              {/each}
+            </label>
+          {/each}
+        </div>
+      {/if}
+      {#if hostEnvKeys.length > 0}
+        <span class="hint">
+          選択中の kit が host-env でホスト側の環境変数を渡します:
+          {hostEnvKeys.join('、')}
+        </span>
+      {/if}
+      {#if conflicts.length > 0}
+        <span class="hint warning">
+          選択中の kit が別のエージェントを要求しています（{conflicts
+            .map((k) => `${kitLabel(k)} → ${k.requires_agent}`)
+            .join('、')}）。作成時に sbx 側で弾かれる可能性があります。
+        </span>
+      {/if}
+    </div>
   </div>
 
+  <!-- 実行の経過。入力欄とは役割が違うので区切る。 -->
   {#if logs.length > 0 || running}
-    <div class="field">
-      <span class="label">実行ログ</span>
-      <pre class="log" bind:this={logBox}>{#each logs as line, i (i)}<span
-            class:err={line.stream === 'stderr'}>{line.text}
+    <div class="section">
+      <div class="field">
+        <span class="label">実行ログ</span>
+        <pre class="log" bind:this={logBox}>{#each logs as line, i (i)}<span
+              class:err={line.stream === 'stderr'}>{line.text}
 </span>{/each}</pre>
+      </div>
     </div>
   {/if}
 
   {#if runError}
-    <p class="error">{runError}</p>
+    <p class="error run-error">{runError}</p>
   {/if}
 
   {#snippet footer()}
@@ -254,8 +266,9 @@
 </Modal>
 
 <style>
+  /* マウント行どうしは同種なので近く保つ。 */
   .mount {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .mount :global(.row) {
@@ -265,7 +278,7 @@
   .ro {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     white-space: nowrap;
     font-size: 13px;
   }
@@ -285,9 +298,9 @@
   }
 
   .kits {
-    max-height: 190px;
+    max-height: 200px;
     overflow: auto;
-    padding: 4px;
+    padding: 6px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -296,8 +309,8 @@
   .kit {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 7px;
+    gap: 9px;
+    padding: 7px 9px;
     border-radius: var(--radius);
   }
 
@@ -311,7 +324,7 @@
 
   .log {
     margin: 0;
-    padding: 10px 12px;
+    padding: 12px 14px;
     max-height: 220px;
     overflow: auto;
     white-space: pre-wrap;
@@ -323,5 +336,8 @@
 
   .log .err {
     color: var(--amber);
+  }
+  .run-error {
+    margin: var(--space-gap) 0 0;
   }
 </style>
