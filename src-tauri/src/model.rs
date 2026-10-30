@@ -202,6 +202,39 @@ pub fn merge_env(layers: &[Vec<(String, String)>]) -> Vec<(String, String)> {
     merged
 }
 
+/// `sbx secret ls --format json` から secret 名を取り出す。
+///
+/// v0.50.0 は `{"secrets": [...], "custom_secrets": [...], ...}` を返すが、
+/// 配列をそのまま返す版もありうる。形の変化で黙って空になると
+/// 「ずっと未設定」に見えてしまうので、どちらも受けて迷ったらエラーにする。
+///
+/// sandbox 限定の secret は、これから作る sandbox には効かないので落とす。
+pub fn parse_secret_names(value: &serde_json::Value) -> Result<Vec<String>, String> {
+    let items = match value {
+        serde_json::Value::Null => return Ok(Vec::new()),
+        serde_json::Value::Array(items) => items.clone(),
+        serde_json::Value::Object(map) => match map.get("secrets") {
+            Some(serde_json::Value::Array(items)) => items.clone(),
+            Some(serde_json::Value::Null) | None => Vec::new(),
+            Some(other) => {
+                return Err(format!(
+                    "sbx secret ls の secrets が配列ではありません: {other}"
+                ));
+            }
+        },
+        other => return Err(format!("sbx secret ls の出力を解釈できません: {other}")),
+    };
+
+    Ok(items
+        .iter()
+        .filter(|item| match item["scope"].as_str() {
+            None | Some("") | Some("global") => true,
+            Some(_) => false,
+        })
+        .filter_map(|item| item["name"].as_str().map(str::to_string))
+        .collect())
+}
+
 /// `sbx mcp ls` の 1 要素。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServer {
@@ -334,6 +367,45 @@ mod tests {
             merge_env(&[first, second]),
             vec![pair("A", "1"), pair("B", "99"), pair("C", "3")]
         );
+    }
+
+    /// `sbx secret ls --format json`（v0.50.0）の実出力。配列ではなくオブジェクト。
+    /// ここを配列だと思い込んでいたために secret が常に未設定扱いになっていた。
+    #[test]
+    fn sbx_secret_ls_の_json_を読める() {
+        let json = serde_json::json!({
+            "secrets": [
+                {"scope": "global", "type": "service", "name": "datadog-pat", "secret": "(stored)"},
+                {"scope": "global", "type": "service", "name": "gcp", "secret": "(stored)"},
+                {"scope": "my-sandbox", "type": "service", "name": "scoped", "secret": "(stored)"}
+            ],
+            "custom_secrets": [],
+            "shadowed_services": [],
+            "env_only_count": 0
+        });
+
+        // sandbox 限定のものは、これから作る sandbox には効かないので落とす。
+        assert_eq!(
+            parse_secret_names(&json).unwrap(),
+            vec!["datadog-pat", "gcp"]
+        );
+    }
+
+    #[test]
+    fn secret_の_json_が配列でも空でも読める() {
+        let bare = serde_json::json!([{"name": "gcp"}]);
+        assert_eq!(parse_secret_names(&bare).unwrap(), vec!["gcp"]);
+
+        assert!(parse_secret_names(&serde_json::json!(null)).unwrap().is_empty());
+        assert!(parse_secret_names(&serde_json::json!([])).unwrap().is_empty());
+        assert!(parse_secret_names(&serde_json::json!({})).unwrap().is_empty());
+    }
+
+    #[test]
+    fn secret_の_json_が想定外ならエラーにする() {
+        // 黙って空を返すと「ずっと未設定」に見えてしまうので、気づけるようにする。
+        assert!(parse_secret_names(&serde_json::json!({"secrets": "oops"})).is_err());
+        assert!(parse_secret_names(&serde_json::json!("oops")).is_err());
     }
 
     /// `sbx ls --format json`（v0.50.0）の実出力をそのまま読めることを固定しておく。

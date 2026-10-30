@@ -26,8 +26,9 @@
     loading = true;
     try {
       kits = await listKits();
-      secrets = await listSecrets().catch(() => []);
-      mcpServers = await listMcpServers().catch(() => []);
+      // 失敗を空扱いにすると「ずっと未設定」に見えるので、そのまま表に出す。
+      secrets = await listSecrets();
+      mcpServers = await listMcpServers();
       error = null;
     } catch (e) {
       kits = [];

@@ -84,8 +84,10 @@
       const [a, k, s, m] = await Promise.all([
         listAgents(),
         listKits().catch(() => []),
-        listSecrets().catch(() => []),
-        listMcpServers().catch(() => [])
+        // secret と MCP は握り潰さない。失敗を空扱いにすると
+        // 「ずっと未設定」に見えて原因が分からなくなる。
+        listSecrets(),
+        listMcpServers()
       ]);
       agents = a;
       kits = k;

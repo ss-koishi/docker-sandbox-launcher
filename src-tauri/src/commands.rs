@@ -104,22 +104,9 @@ pub fn list_kits(app: AppHandle) -> Result<Vec<Kit>, String> {
 /// ここで見るのは「用意されているか」だけでよい。
 #[tauri::command]
 pub async fn list_secrets(app: AppHandle) -> Result<Vec<String>, String> {
-    #[derive(Deserialize)]
-    struct Secret {
-        name: String,
-        #[serde(default)]
-        scope: String,
-    }
-
     blocking(move || {
-        let entries: Option<Vec<Secret>> = sbx(&app)?.json(&["secret", "ls"])?;
-        Ok(entries
-            .unwrap_or_default()
-            .into_iter()
-            // sandbox 限定のものは作成前の判定には使えないので除く。
-            .filter(|s| s.scope.is_empty() || s.scope == "global")
-            .map(|s| s.name)
-            .collect())
+        let value: serde_json::Value = sbx(&app)?.json(&["secret", "ls"])?;
+        crate::model::parse_secret_names(&value)
     })
     .await
 }
