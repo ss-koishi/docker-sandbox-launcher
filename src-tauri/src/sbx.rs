@@ -21,8 +21,8 @@ const EXTRA_PATHS: &[&str] = &[
 
 pub struct Sbx {
     program: PathBuf,
-    /// 設定で指定された追加の環境変数。エージェントによってはホスト側の
-    /// 環境変数を要求するので、sbx の呼び出し全部に効かせる。
+    /// 呼び出しごとに足す環境変数。エージェントによってはホスト側の環境変数を
+    /// 要求するので、使う kit の host-env をここに載せる。
     env: Vec<(String, String)>,
 }
 
@@ -95,7 +95,7 @@ impl Sbx {
     pub fn from_settings(settings: &crate::model::AppSettings) -> Result<Self, String> {
         Ok(Self {
             program: locate_program("sbx", &settings.sbx_path)?,
-            env: settings.env_pairs(),
+            env: Vec::new(),
         })
     }
 

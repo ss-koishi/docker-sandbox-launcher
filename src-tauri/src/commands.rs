@@ -42,7 +42,6 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<AppSetting
         herdr_path: settings.herdr_path.trim().to_string(),
         terminal_command: settings.terminal_command.trim().to_string(),
         focus_terminal: settings.focus_terminal,
-        extra_env: settings.extra_env.trim().to_string(),
     };
     settings::save(&app, &normalized)?;
     Ok(normalized)

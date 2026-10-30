@@ -134,13 +134,6 @@ pub struct AppSettings {
     pub terminal_command: String,
     /// herdr で開いたあと、Ghostty を前面に出すか。
     pub focus_terminal: bool,
-    /// sbx に渡す環境変数。1 行 1 つの `KEY=VALUE`。
-    ///
-    /// エージェントによってはホスト側の環境変数を要求する
-    /// (claude-vertex の `ANTHROPIC_VERTEX_PROJECT_ID` など)。これは kit の
-    /// spec.yml や sbxenv.yaml の `env:` では満たせない。どちらもサンドボックス
-    /// 側のスコープで、チェックはホストの sbx プロセスが行うため。
-    pub extra_env: String,
 }
 
 impl Default for AppSettings {
@@ -154,7 +147,6 @@ impl Default for AppSettings {
             herdr_path: String::new(),
             terminal_command: String::new(),
             focus_terminal: true,
-            extra_env: String::new(),
         }
     }
 }
@@ -188,14 +180,6 @@ pub fn merge_env(layers: &[Vec<(String, String)>]) -> Vec<(String, String)> {
         }
     }
     merged
-}
-
-impl AppSettings {
-    /// `extra_env` の複数行テキストを `(KEY, VALUE)` の並びにする。
-    pub fn env_pairs(&self) -> Vec<(String, String)> {
-        parse_env(&self.extra_env)
-    }
-
 }
 
 /// sbx の検出結果。設定画面で「見つかっているか」を示すのに使う。
@@ -271,17 +255,13 @@ mod tests {
         );
     }
 
-    fn with_env(text: &str) -> AppSettings {
-        AppSettings {
-            extra_env: text.into(),
-            ..AppSettings::default()
-        }
+    fn pair(key: &str, value: &str) -> (String, String) {
+        (key.to_string(), value.to_string())
     }
 
     #[test]
     fn 環境変数の複数行テキストを解釈する() {
-        let s = with_env(
-            "
+        let text = "
             # コメントは無視する
             ANTHROPIC_VERTEX_PROJECT_ID=my-gcp-project
             CLOUD_ML_REGION = global
@@ -289,15 +269,14 @@ mod tests {
             EMPTY=
             =値だけ
             値なし
-        ",
-        );
+        ";
 
         assert_eq!(
-            s.env_pairs(),
+            parse_env(text),
             vec![
-                ("ANTHROPIC_VERTEX_PROJECT_ID".to_string(), "my-gcp-project".to_string()),
-                ("CLOUD_ML_REGION".to_string(), "global".to_string()),
-                ("EMPTY".to_string(), String::new()),
+                pair("ANTHROPIC_VERTEX_PROJECT_ID", "my-gcp-project"),
+                pair("CLOUD_ML_REGION", "global"),
+                pair("EMPTY", ""),
             ]
         );
     }
@@ -305,26 +284,19 @@ mod tests {
     #[test]
     fn 値に等号が含まれていても壊れない() {
         assert_eq!(
-            with_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com").env_pairs(),
-            vec![(
-                "OTEL_RESOURCE_ATTRIBUTES".to_string(),
-                "team.member=foo@example.com".to_string()
-            )]
+            parse_env("OTEL_RESOURCE_ATTRIBUTES=team.member=foo@example.com"),
+            vec![pair("OTEL_RESOURCE_ATTRIBUTES", "team.member=foo@example.com")]
         );
     }
 
     #[test]
     fn 環境変数は後のレイヤーが勝つ() {
-        let global = parse_env("A=1\nB=2");
-        let kit = parse_env("B=99\nC=3");
+        let first = parse_env("A=1\nB=2");
+        let second = parse_env("B=99\nC=3");
 
         assert_eq!(
-            merge_env(&[global, kit]),
-            vec![
-                ("A".to_string(), "1".to_string()),
-                ("B".to_string(), "99".to_string()),
-                ("C".to_string(), "3".to_string()),
-            ]
+            merge_env(&[first, second]),
+            vec![pair("A", "1"), pair("B", "99"), pair("C", "3")]
         );
     }
 
