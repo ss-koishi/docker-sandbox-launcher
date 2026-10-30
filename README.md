@@ -135,6 +135,25 @@ sbx secret set gcp --command "gcloud auth application-default print-access-token
 `logging` / `monitoring` / `container` / `sqladmin` の 4 ドメインだけで、`aiplatform` は
 意図的に除外されています。
 
+#### MCP ゲートウェイの結線
+
+sbx は sandbox ごとに MCP ゲートウェイを立て、`--static-mcp` や `sbx mcp load` で
+入れたサーバーを 1 つの接続にまとめます。ドキュメントは
+「supported agent integrations read the gateway URL and register it with the agent」
+としていますが、**sbx v0.50.0 + Claude Code 2.1.306 ではこの登録が行われません**。
+
+- claude のバイナリに `MCP_GATEWAY_URL` の参照が 0 件
+- sbx が claude に渡す引数は `--dangerously-skip-permissions` のみ
+- `~/.claude.json` にも `~/.mcp.json` にもゲートウェイの記載なし
+
+ゲートウェイ自体は正常で、`initialize` を投げれば応答します。そこで
+`~/.sbx/kits/claude-code` の `setup.startup` が `~/.claude.json` に
+`mcpServers.mcp-gateway` を追記して、最後の 1 ステップだけ補っています。
+sbx 側が直ったらそのブロックは削除できます。
+
+エージェントからは `datadog` ではなく **`mcp-gateway`** という 1 つのサーバーとして
+見える点に注意してください。
+
 #### 確認の限界
 
 いずれも**有無しか見ません**。
