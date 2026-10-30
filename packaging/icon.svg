@@ -1,10 +1,14 @@
 <!--
-  アプリアイコンの元データ。アプリ内の Logo.svelte と同じモチーフ
-  （積んだコンテナ + 水面）を、macOS のアイコンらしい角丸タイルに載せている。
+  アプリアイコンの元データ。
+  「管理された環境」を、隔離壁 + 錠前 + 中のコンテナで表す。
+  壁を一度切って錠前を差し込むことで、出入りが管理されていることを示す。
 
   ここから各サイズを生成する:
     qlmanage -t -s 1024 -o packaging packaging/icon.svg   # → icon.svg.png
     npm run tauri icon packaging/icon.png
+
+  小さいサイズで潰れないよう、要素は 3 つ（壁・錠前・コンテナ）に絞り、
+  錠前はコンテナより小さくして主役を奪わないようにしてある。
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
@@ -12,39 +16,43 @@
       <stop offset="0" stop-color="#3379F7" />
       <stop offset="1" stop-color="#1046C0" />
     </linearGradient>
+    <!-- 錠前を置く分だけ壁を切る。 -->
+    <mask id="gate">
+      <rect width="1024" height="1024" fill="#FFFFFF" />
+      <rect x="406" y="150" width="212" height="130" fill="#000000" />
+    </mask>
   </defs>
 
-  <!-- 角丸タイル。半径は macOS の squircle に近い比率。 -->
   <rect width="1024" height="1024" rx="228" ry="228" fill="url(#tile)" />
 
-  <!--
-    積んだコンテナ。下段 3 つ、上段 2 つ。
-    下段 3*168 + 2*24 = 552 → x=236 始まり、上段 2*168 + 24 = 360 → x=332 始まり。
-    どちらも中心が 512 に来るので左右対称に見える。
-  -->
-  <g fill="#FFFFFF">
-    <rect x="332" y="300" width="168" height="168" rx="28" />
-    <rect x="524" y="300" width="168" height="168" rx="28" />
-    <rect x="236" y="492" width="168" height="168" rx="28" />
-    <rect x="428" y="492" width="168" height="168" rx="28" />
-    <rect x="620" y="492" width="168" height="168" rx="28" />
-  </g>
-
-  <!--
-    水面。166px 幅の弧を 4 つ（= 2 周期）だけにして、
-    小さいサイズでも波として読めるようにしてある。
-    180 から 844 までなので、こちらも中心が 512。
-  -->
-  <path
-    d="M180 754
-       c41.5 -46 124.5 -46 166 0
-       c41.5 46 124.5 46 166 0
-       c41.5 -46 124.5 -46 166 0
-       c41.5 46 124.5 46 166 0"
+  <!-- 隔離壁。コンテナより弱い白にして主従をつける。 -->
+  <rect
+    x="196"
+    y="196"
+    width="632"
+    height="632"
+    rx="132"
     fill="none"
     stroke="#FFFFFF"
-    stroke-width="48"
-    stroke-linecap="round"
-    opacity="0.95"
+    stroke-width="58"
+    opacity="0.58"
+    mask="url(#gate)"
   />
+
+  <!-- 錠前。壁の切れ目にまたがせる。 -->
+  <path
+    d="M466 214 v-22 a46 46 0 0 1 92 0 v22"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="38"
+    stroke-linecap="round"
+  />
+  <rect x="437" y="208" width="150" height="112" rx="34" fill="#FFFFFF" />
+
+  <!-- 管理下にあるコンテナ。 -->
+  <g fill="#FFFFFF">
+    <rect x="437" y="398" width="150" height="150" rx="26" />
+    <rect x="351" y="570" width="150" height="150" rx="26" />
+    <rect x="523" y="570" width="150" height="150" rx="26" />
+  </g>
 </svg>
