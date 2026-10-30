@@ -18,6 +18,8 @@ pub fn run() {
             commands::list_agents,
             commands::list_kits,
             commands::read_kit_spec,
+            commands::read_kit_host_env,
+            commands::write_kit_host_env,
             commands::create_sandbox,
             commands::run_lifecycle,
             commands::detect_terminal,

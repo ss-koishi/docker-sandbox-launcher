@@ -4,6 +4,7 @@
   import { errorMessage, listKits, readKitSpec } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { kitLabel, type Kit } from '$lib/types';
+  import HostEnvModal from './HostEnvModal.svelte';
   import Icon from './Icon.svelte';
 
   let kits = $state<Kit[]>([]);
@@ -11,6 +12,8 @@
   let error = $state<string | null>(null);
   /** spec を展開中の kit のパス → 原文。 */
   let specs = $state<Record<string, string>>({});
+  /** host-env を編集中の kit。 */
+  let editing = $state<Kit | null>(null);
 
   onMount(() => void refresh());
 
@@ -101,18 +104,32 @@
             </td>
             <td class="muted">{kit.requires_agent ?? '—'}</td>
             <td>
-              {#if kit.host_env_keys.length > 0}
-                <span class="env-keys">
+              <button
+                type="button"
+                class="env-cell"
+                onclick={() => (editing = kit)}
+                title="host-env を編集"
+              >
+                {#if kit.host_env_keys.length > 0}
                   {#each kit.host_env_keys as key (key)}
                     <span class="chip accent">{key}</span>
                   {/each}
-                </span>
-              {:else}
-                <span class="muted">—</span>
-              {/if}
+                {:else}
+                  <span class="muted">＋ 追加</span>
+                {/if}
+              </button>
             </td>
             <td><code class="path">{kit.path}</code></td>
             <td class="actions">
+              <button
+                type="button"
+                class="icon"
+                onclick={() => (editing = kit)}
+                title="host-env を編集"
+                aria-label="{kitLabel(kit)} の host-env を編集"
+              >
+                <Icon name="edit" size={16} />
+              </button>
               {#if kit.spec_file}
                 <button
                   type="button"
@@ -152,6 +169,17 @@
   {/if}
 </div>
 
+{#if editing}
+  <HostEnvModal
+    kit={editing}
+    onclose={() => (editing = null)}
+    onsaved={() => {
+      editing = null;
+      void refresh();
+    }}
+  />
+{/if}
+
 <style>
   .head {
     margin-bottom: 16px;
@@ -182,10 +210,23 @@
     word-break: break-all;
   }
 
-  .env-keys {
+  /* セルごと押せるようにして、空のときも追加導線にする。 */
+  .env-cell {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 3px;
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    border-radius: var(--radius);
+    font-weight: 400;
+    text-align: left;
+  }
+
+  .env-cell:hover {
+    background: var(--surface-alt);
   }
 
   .actions :global(button.icon.on) {

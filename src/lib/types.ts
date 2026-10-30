@@ -89,3 +89,20 @@ export function kitLabel(kit: Kit): string {
 export function isMixin(kit: Kit): boolean {
   return kit.kind !== 'workload';
 }
+
+/**
+ * host-env の本文から、実際に効くキーを取り出す。
+ * Rust 側の `parse_env` と同じ規則（空行と `#` 始まりを無視、最初の `=` で分割）。
+ */
+export function parseEnvKeys(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('#'))
+    .map((line) => {
+      // `=` を含まない行は変数ではないので捨てる。
+      const at = line.indexOf('=');
+      return at < 0 ? '' : line.slice(0, at).trim();
+    })
+    .filter((key) => key !== '');
+}

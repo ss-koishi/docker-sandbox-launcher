@@ -97,17 +97,69 @@ pub fn list_kits(app: AppHandle) -> Result<Vec<Kit>, String> {
     kits::scan(&settings::load(&app).kits_dir)
 }
 
+/// kits ディレクトリの外を読み書きしないための関門。解決済みの絶対パスを返す。
+fn inside_kits_dir(app: &AppHandle, path: &str) -> Result<std::path::PathBuf, String> {
+    let root = std::fs::canonicalize(settings::load(app).kits_dir)
+        .map_err(|e| format!("kits ディレクトリを解決できませんでした: {e}"))?;
+    let target = std::fs::canonicalize(path)
+        .map_err(|e| format!("{path} を解決できませんでした: {e}"))?;
+    if !target.starts_with(&root) {
+        return Err("kits ディレクトリの外は操作できません".into());
+    }
+    Ok(target)
+}
+
 /// kit の spec を原文のまま返す（閲覧専用）。設定された kits ディレクトリの外は読まない。
 #[tauri::command]
 pub fn read_kit_spec(app: AppHandle, path: String) -> Result<String, String> {
-    let root = std::fs::canonicalize(settings::load(&app).kits_dir)
-        .map_err(|e| format!("kits ディレクトリを解決できませんでした: {e}"))?;
-    let target = std::fs::canonicalize(&path)
-        .map_err(|e| format!("{path} を解決できませんでした: {e}"))?;
-    if !target.starts_with(&root) {
-        return Err("kits ディレクトリの外のファイルは開けません".into());
-    }
+    let target = inside_kits_dir(&app, &path)?;
     std::fs::read_to_string(&target).map_err(|e| format!("{path} を読めませんでした: {e}"))
+}
+
+/// kit の host-env を原文のまま返す。無ければ空文字。
+#[tauri::command]
+pub fn read_kit_host_env(app: AppHandle, kit_dir: String) -> Result<String, String> {
+    let dir = inside_kits_dir(&app, &kit_dir)?;
+    let file = dir.join(kits::HOST_ENV_FILE);
+
+    match std::fs::read_to_string(&file) {
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(format!("{} を読めませんでした: {e}", file.display())),
+    }
+}
+
+/// kit の host-env を書き換える。中身が空なら、ファイルごと消す。
+#[tauri::command]
+pub fn write_kit_host_env(
+    app: AppHandle,
+    kit_dir: String,
+    content: String,
+) -> Result<Vec<String>, String> {
+    let dir = inside_kits_dir(&app, &kit_dir)?;
+    let file = dir.join(kits::HOST_ENV_FILE);
+
+    if content.trim().is_empty() {
+        match std::fs::remove_file(&file) {
+            Ok(()) => return Ok(Vec::new()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(format!("{} を削除できませんでした: {e}", file.display())),
+        }
+    }
+
+    let body = if content.ends_with('\n') {
+        content
+    } else {
+        format!("{content}\n")
+    };
+    std::fs::write(&file, &body)
+        .map_err(|e| format!("{} に書き込めませんでした: {e}", file.display()))?;
+
+    // 保存後に実際に効くキーを返し、画面でそのまま確認できるようにする。
+    Ok(crate::model::parse_env(&body)
+        .into_iter()
+        .map(|(k, _)| k)
+        .collect())
 }
 
 #[tauri::command]

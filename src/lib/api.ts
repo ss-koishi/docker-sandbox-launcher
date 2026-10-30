@@ -25,6 +25,14 @@ export const listKits = () => invoke<Kit[]>('list_kits');
 
 export const readKitSpec = (path: string) => invoke<string>('read_kit_spec', { path });
 
+/** kit の host-env を原文のまま読む。無ければ空文字。 */
+export const readKitHostEnv = (kitDir: string) =>
+  invoke<string>('read_kit_host_env', { kitDir });
+
+/** kit の host-env を保存する。中身が空ならファイルごと消す。実際に効くキーを返す。 */
+export const writeKitHostEnv = (kitDir: string, content: string) =>
+  invoke<string[]>('write_kit_host_env', { kitDir, content });
+
 export const ensureWorkspaceDir = (name: string) =>
   invoke<string>('ensure_workspace_dir', { name });
 
