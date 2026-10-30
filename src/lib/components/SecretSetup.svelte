@@ -22,17 +22,17 @@
       .map(({ kit, lack }) => ({
         kit,
         lack,
-        // secret-setup が無い kit には、せめて一般形を出す。
-        // sbx が next_step を返すなら、推測より確かなのでそれを足す。
-        command: [
+        // kit が手順を持っているならそれが正。sbx mcp add は OAuth まで
+        // 走るので、next_step を足すと二重の案内になる。
+        // secret-setup が無い kit にだけ、sbx の next_step と一般形で補う。
+        command:
           kit.secret_setup?.trim() ||
-            lack.secrets.map((n) => `sbx secret set ${n}`).join('\n'),
-          ...lack.mcp
-            .map((n) => mcp.find((s) => s.name === n)?.next_step)
-            .filter((step): step is string => !!step)
-        ]
-          .filter(Boolean)
-          .join('\n')
+          [
+            ...lack.secrets.map((n) => `sbx secret set ${n}`),
+            ...lack.mcp
+              .map((n) => mcp.find((s) => s.name === n)?.next_step)
+              .filter((step): step is string => !!step)
+          ].join('\n')
       }))
   );
 
