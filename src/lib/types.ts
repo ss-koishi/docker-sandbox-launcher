@@ -25,6 +25,10 @@ export type Kit = {
   required_secrets: string[];
   /** サイドカーの #mcp:。`sbx mcp add` 済みである必要があり、作成時に --static-mcp で渡す。 */
   required_mcp: string[];
+  /** サイドカーの #file:。ホストに存在していてほしいファイル。 */
+  required_files: string[];
+  /** required_files のうち実際には無かったもの（Rust 側で判定済み）。 */
+  missing_files: string[];
   /** secret を用意するコマンド（kit ディレクトリの secret-setup）。 */
   secret_setup: string | null;
   spec_file: string | null;
@@ -32,12 +36,14 @@ export type Kit = {
 };
 
 /** まだ用意できていない前提条件。 */
-export type Unmet = { secrets: string[]; mcp: string[] };
+export type Unmet = { secrets: string[]; mcp: string[]; files: string[] };
 
 export function unmet(kit: Kit, secrets: string[], mcp: string[]): Unmet {
   return {
     secrets: kit.required_secrets.filter((name) => !secrets.includes(name)),
-    mcp: kit.required_mcp.filter((name) => !mcp.includes(name))
+    mcp: kit.required_mcp.filter((name) => !mcp.includes(name)),
+    // ファイルの有無はフロントから見られないので Rust の判定をそのまま使う。
+    files: kit.missing_files
   };
 }
 

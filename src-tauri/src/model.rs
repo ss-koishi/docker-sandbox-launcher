@@ -50,6 +50,11 @@ pub struct Kit {
     /// サイドカーの `#mcp:`。登録済みの MCP サーバー名で、作成時に
     /// `--static-mcp` として渡す。
     pub required_mcp: Vec<String>,
+    /// サイドカーの `#file:`。ホストに存在していてほしいファイル。
+    /// Vertex が使うホストの ADC のように、sbx の外にある前提条件を表す。
+    pub required_files: Vec<String>,
+    /// `required_files` のうち、実際には無かったもの。
+    pub missing_files: Vec<String>,
     /// secret を用意するためのコマンド（kit ディレクトリの secret-setup）。
     pub secret_setup: Option<String>,
     /// 見つかった spec ファイルの絶対パス。

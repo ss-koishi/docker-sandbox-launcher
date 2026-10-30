@@ -92,7 +92,7 @@
           <th>種別</th>
           <th>要求エージェント</th>
           <th>host-env</th>
-          <th>必要な secret</th>
+          <th>前提</th>
           <th></th>
         </tr>
       </thead>
@@ -130,18 +130,23 @@
               </button>
             </td>
             <td>
-              {#if kit.required_secrets.length === 0}
+              {#if kit.required_secrets.length + kit.required_mcp.length + kit.required_files.length === 0}
                 <span class="muted">—</span>
               {:else}
                 <span class="secrets">
                   {#each kit.required_secrets as name (name)}
-                    <span
-                      class="chip"
-                      class:warning={!secrets.includes(name)}
-                      title={secrets.includes(name) ? '設定済み' : '未設定'}
-                    >
-                      {secrets.includes(name) ? '✓' : '!'}
-                      {name}
+                    <span class="chip" class:warning={!secrets.includes(name)}>
+                      {secrets.includes(name) ? '✓' : '!'} secret: {name}
+                    </span>
+                  {/each}
+                  {#each kit.required_mcp as name (name)}
+                    <span class="chip" class:warning={!mcpServers.includes(name)}>
+                      {mcpServers.includes(name) ? '✓' : '!'} MCP: {name}
+                    </span>
+                  {/each}
+                  {#each kit.required_files as path (path)}
+                    <span class="chip" class:warning={kit.missing_files.includes(path)} title={path}>
+                      {kit.missing_files.includes(path) ? '!' : '✓'} file: {path.split('/').pop()}
                     </span>
                   {/each}
                 </span>

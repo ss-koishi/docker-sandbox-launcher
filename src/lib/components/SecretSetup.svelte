@@ -18,7 +18,7 @@
   const pending = $derived(
     kits
       .map((kit) => ({ kit, lack: unmet(kit, secrets, mcp) }))
-      .filter(({ lack }) => lack.secrets.length > 0 || lack.mcp.length > 0)
+      .filter(({ lack }) => lack.secrets.length + lack.mcp.length + lack.files.length > 0)
       .map(({ kit, lack }) => ({
         kit,
         lack,
@@ -57,6 +57,9 @@
           {/each}
           {#each lack.mcp as name (name)}
             <span class="chip warning">MCP: {name}</span>
+          {/each}
+          {#each lack.files as path (path)}
+            <span class="chip warning">file: {path}</span>
           {/each}
         </div>
 

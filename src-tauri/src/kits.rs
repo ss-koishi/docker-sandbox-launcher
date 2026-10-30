@@ -28,30 +28,52 @@ pub const HOST_ENV_FILE: &str = "host-env";
 /// ```sh
 /// #secret: mcp:datadog:pat   → sbx secret ls と突き合わせる
 /// #mcp: datadog              → sbx mcp ls と突き合わせ、作成時に --static-mcp で渡す
+/// #file: ~/.config/...       → ホストにそのファイルがあるかを見る
 /// ```
 pub const SECRET_SETUP_FILE: &str = "secret-setup";
 
 const SECRET_DIRECTIVE: &str = "#secret:";
 const MCP_DIRECTIVE: &str = "#mcp:";
+const FILE_DIRECTIVE: &str = "#file:";
+
+/// サイドカーを読み取った結果。
+#[derive(Default)]
+struct Setup {
+    secrets: Vec<String>,
+    mcp: Vec<String>,
+    files: Vec<String>,
+    /// ディレクティブを除いた、画面に出すコマンド。
+    command: String,
+}
 
 /// サイドカーを、ディレクティブと「表示するコマンド」に分ける。
-fn parse_setup(text: &str) -> (Vec<String>, Vec<String>, String) {
-    let mut secrets = Vec::new();
-    let mut mcp = Vec::new();
+fn parse_setup(text: &str) -> Setup {
+    let mut setup = Setup::default();
     let mut lines = Vec::new();
 
     for line in text.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix(SECRET_DIRECTIVE) {
-            push_name(&mut secrets, rest);
+            push_name(&mut setup.secrets, rest);
         } else if let Some(rest) = trimmed.strip_prefix(MCP_DIRECTIVE) {
-            push_name(&mut mcp, rest);
+            push_name(&mut setup.mcp, rest);
+        } else if let Some(rest) = trimmed.strip_prefix(FILE_DIRECTIVE) {
+            push_name(&mut setup.files, &expand_home(rest.trim()));
         } else {
             lines.push(line);
         }
     }
 
-    (secrets, mcp, lines.join("\n").trim().to_string())
+    setup.command = lines.join("\n").trim().to_string();
+    setup
+}
+
+/// 先頭の `~` をホームに展開する。それ以外はそのまま。
+fn expand_home(path: &str) -> String {
+    match path.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", crate::model::home_dir()),
+        None => path.to_string(),
+    }
 }
 
 fn push_name(into: &mut Vec<String>, raw: &str) {
@@ -108,11 +130,17 @@ fn read_kit(path: &Path) -> Option<Kit> {
         .find(|p| p.is_file())?;
 
     let dir = path.display().to_string();
-    let (setup_secrets, required_mcp, setup_command) =
-        match std::fs::read_to_string(path.join(SECRET_SETUP_FILE)) {
-            Ok(text) => parse_setup(&text),
-            Err(_) => (Vec::new(), Vec::new(), String::new()),
-        };
+    let setup = std::fs::read_to_string(path.join(SECRET_SETUP_FILE))
+        .map(|text| parse_setup(&text))
+        .unwrap_or_default();
+
+    // ファイルの有無はここで見る。フロントからは stat できないため。
+    let missing_files = setup
+        .files
+        .iter()
+        .filter(|p| !Path::new(p).exists())
+        .cloned()
+        .collect();
 
     let mut kit = Kit {
         id,
@@ -123,9 +151,11 @@ fn read_kit(path: &Path) -> Option<Kit> {
         kind: None,
         requires_agent: None,
         // spec の credentials は下で足す。ここはサイドカー由来の分。
-        required_secrets: setup_secrets,
-        required_mcp,
-        secret_setup: Some(setup_command).filter(|c| !c.is_empty()),
+        required_secrets: setup.secrets,
+        required_mcp: setup.mcp,
+        required_files: setup.files,
+        missing_files,
+        secret_setup: Some(setup.command).filter(|c| !c.is_empty()),
         spec_file: Some(spec_file.display().to_string()),
         error: None,
     };
@@ -379,6 +409,35 @@ mod tests {
         assert!(command.contains("sbx mcp add datadog"));
         assert!(!command.contains("#secret:"));
         assert!(!command.contains("#mcp:"));
+    }
+
+    #[test]
+    fn file_ディレクティブで存在を確認する() {
+        let tmp = TempDir::new("files");
+        tmp.kit("vertex", Some("kind: mixin\nname: vertex\n"));
+        // 自分自身の spec.yml は必ずあるので、あるケースの題材に使う。
+        let present = tmp.0.join("vertex").join("spec.yml").display().to_string();
+        std::fs::write(
+            tmp.0.join("vertex").join(SECRET_SETUP_FILE),
+            format!("#file: {present}\n#file: /no/such/adc.json\ngcloud auth application-default login\n"),
+        )
+        .unwrap();
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        let kit = &kits[0];
+
+        assert_eq!(kit.required_files, vec![present, "/no/such/adc.json".into()]);
+        assert_eq!(kit.missing_files, vec!["/no/such/adc.json"]);
+    }
+
+    #[test]
+    fn file_ディレクティブの_チルダ_を展開する() {
+        let home = crate::model::home_dir();
+        let setup = parse_setup("#file: ~/.config/gcloud/adc.json\n");
+
+        assert_eq!(setup.files, vec![format!("{home}/.config/gcloud/adc.json")]);
+        // 絶対パスはそのまま。
+        assert_eq!(parse_setup("#file: /etc/hosts\n").files, vec!["/etc/hosts"]);
     }
 
     #[test]
