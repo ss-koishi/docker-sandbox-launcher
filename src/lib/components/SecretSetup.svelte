@@ -1,28 +1,31 @@
 <script lang="ts">
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-  import { kitLabel, missingSecrets, type Kit } from '$lib/types';
+  import { kitLabel, unmet, type Kit } from '$lib/types';
   import Icon from './Icon.svelte';
 
   type Props = {
     /** 判定対象の kit。 */
     kits: Kit[];
     /** 登録済み secret の名前。 */
-    stored: string[];
+    secrets: string[];
+    /** 登録済み MCP サーバーの名前。 */
+    mcp: string[];
   };
 
-  let { kits, stored }: Props = $props();
+  let { kits, secrets, mcp }: Props = $props();
 
   /** 未設定の secret を持つ kit だけを、用意コマンドとともに並べる。 */
   const pending = $derived(
     kits
-      .map((kit) => ({ kit, missing: missingSecrets(kit, stored) }))
-      .filter(({ missing }) => missing.length > 0)
-      .map(({ kit, missing }) => ({
+      .map((kit) => ({ kit, lack: unmet(kit, secrets, mcp) }))
+      .filter(({ lack }) => lack.secrets.length > 0 || lack.mcp.length > 0)
+      .map(({ kit, lack }) => ({
         kit,
-        missing,
+        lack,
         // secret-setup が無い kit には、せめて一般形を出す。
         command:
-          kit.secret_setup?.trim() || missing.map((n) => `sbx secret set ${n}`).join('\n')
+          kit.secret_setup?.trim() ||
+          lack.secrets.map((n) => `sbx secret set ${n}`).join('\n')
       }))
   );
 
@@ -42,15 +45,18 @@
   <div class="pending">
     <p class="lead">
       <Icon name="key" size={15} />
-      <span>作成前に認証情報の用意が要ります。ホストで次を実行してください。</span>
+      <span>作成前にホスト側の用意が要ります。次を実行してください。</span>
     </p>
 
-    {#each pending as { kit, missing, command } (kit.path)}
+    {#each pending as { kit, lack, command } (kit.path)}
       <div class="item">
         <div class="meta">
           <strong>{kitLabel(kit)}</strong>
-          {#each missing as name (name)}
-            <span class="chip warning">{name} 未設定</span>
+          {#each lack.secrets as name (name)}
+            <span class="chip warning">secret: {name}</span>
+          {/each}
+          {#each lack.mcp as name (name)}
+            <span class="chip warning">MCP: {name}</span>
           {/each}
         </div>
 

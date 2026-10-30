@@ -44,8 +44,12 @@ pub struct Kit {
     /// この kit を使うときにホスト側の sbx へ渡す環境変数のキー。
     /// 値は表示しない（必要なら host-env ファイルを直接見る）。
     pub host_env_keys: Vec<String>,
-    /// spec の `credentials[].service`。作成前に `sbx secret set` が要るもの。
+    /// 作成前に `sbx secret set` が要るもの。
+    /// spec の `credentials[].service` と、サイドカーの `#secret:` の合併。
     pub required_secrets: Vec<String>,
+    /// サイドカーの `#mcp:`。登録済みの MCP サーバー名で、作成時に
+    /// `--static-mcp` として渡す。
+    pub required_mcp: Vec<String>,
     /// secret を用意するためのコマンド（kit ディレクトリの secret-setup）。
     pub secret_setup: Option<String>,
     /// 見つかった spec ファイルの絶対パス。
@@ -86,6 +90,9 @@ pub struct CreateRequest {
     /// `--kit` に渡す mixin 参照のリスト。
     #[serde(default)]
     pub kits: Vec<String>,
+    /// `--static-mcp` に渡す、登録済み MCP サーバー名。
+    #[serde(default)]
+    pub static_mcp: Vec<String>,
 }
 
 impl CreateRequest {
@@ -115,6 +122,10 @@ impl CreateRequest {
         for kit in self.kits.iter().filter(|k| !k.trim().is_empty()) {
             args.push("--kit".to_string());
             args.push(kit.trim().to_string());
+        }
+        for server in self.static_mcp.iter().filter(|s| !s.trim().is_empty()) {
+            args.push("--static-mcp".to_string());
+            args.push(server.trim().to_string());
         }
         Ok(args)
     }
@@ -225,6 +236,7 @@ mod tests {
                 mount("/Users/me/src/acme", true),
             ],
             kits: vec!["/Users/me/.sbx/kits/aws".into()],
+            static_mcp: vec!["datadog".into()],
         }
     }
 
@@ -241,6 +253,8 @@ mod tests {
                 "/Users/me/src/acme:ro",
                 "--kit",
                 "/Users/me/.sbx/kits/aws",
+                "--static-mcp",
+                "datadog",
             ]
         );
     }
@@ -250,6 +264,7 @@ mod tests {
         let req = CreateRequest {
             workspaces: vec![mount("  ", false)],
             kits: vec!["".into(), "  ".into()],
+            static_mcp: vec!["".into()],
             ..request()
         };
 

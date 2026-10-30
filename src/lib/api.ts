@@ -26,6 +26,9 @@ export const listKits = () => invoke<Kit[]>('list_kits');
 /** 登録済み secret の名前。kit の required_secrets と突き合わせる。 */
 export const listSecrets = () => invoke<string[]>('list_secrets');
 
+/** ホストに登録済みの MCP サーバー名。kit の required_mcp と突き合わせる。 */
+export const listMcpServers = () => invoke<string[]>('list_mcp_servers');
+
 export const readKitSpec = (path: string) => invoke<string>('read_kit_spec', { path });
 
 /** kit の host-env を原文のまま読む。無ければ空文字。 */

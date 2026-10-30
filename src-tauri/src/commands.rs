@@ -214,6 +214,21 @@ pub async fn create_sandbox(
     .await
 }
 
+/// ホストに登録済みの MCP サーバー名。kit の required_mcp と突き合わせる。
+#[tauri::command]
+pub async fn list_mcp_servers(app: AppHandle) -> Result<Vec<String>, String> {
+    #[derive(Deserialize)]
+    struct Server {
+        name: String,
+    }
+
+    blocking(move || {
+        let entries: Option<Vec<Server>> = sbx(&app)?.json(&["mcp", "ls"])?;
+        Ok(entries.unwrap_or_default().into_iter().map(|s| s.name).collect())
+    })
+    .await
+}
+
 /// rm / stop / prune をまとめて扱う。許可された動詞かどうかは Rust 側で検証する。
 #[tauri::command]
 pub async fn run_lifecycle(

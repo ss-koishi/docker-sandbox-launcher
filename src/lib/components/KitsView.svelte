@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { revealItemInDir } from '@tauri-apps/plugin-opener';
-  import { errorMessage, listKits, listSecrets, readKitSpec } from '$lib/api';
+  import { errorMessage, listKits, listMcpServers, listSecrets, readKitSpec } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { kitLabel, type Kit } from '$lib/types';
   import HostEnvModal from './HostEnvModal.svelte';
@@ -11,6 +11,8 @@
   let kits = $state<Kit[]>([]);
   /** 登録済み secret の名前。 */
   let secrets = $state<string[]>([]);
+  /** 登録済み MCP サーバーの名前。 */
+  let mcpServers = $state<string[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
   /** spec を展開中の kit のパス → 原文。 */
@@ -25,6 +27,7 @@
     try {
       kits = await listKits();
       secrets = await listSecrets().catch(() => []);
+      mcpServers = await listMcpServers().catch(() => []);
       error = null;
     } catch (e) {
       kits = [];
@@ -195,7 +198,7 @@
 
 {#if kits.length > 0}
   <div class="secret-setup">
-    <SecretSetup {kits} stored={secrets} />
+    <SecretSetup {kits} {secrets} mcp={mcpServers} />
   </div>
 {/if}
 

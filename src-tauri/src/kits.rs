@@ -15,12 +15,51 @@ const SPEC_FILES: &[&str] = &["spec.yml", "spec.yaml", "kit.yml", "kit.yaml"];
 /// このアプリ独自のサイドカーとして扱う。sbx はこのファイルを見ない。
 pub const HOST_ENV_FILE: &str = "host-env";
 
-/// kit が要求する secret を用意するためのコマンドを書いておくファイル。
+/// kit を使う前にホストで済ませておく手順を書いておくファイル。
 ///
-/// `sbx secret set` に渡す引数は環境ごとに違う（どのサービスアカウントを
-/// impersonate するか等）ので spec.yml には書けない。host-env と同じく
+/// `sbx secret set` の引数は環境ごとに違い（どのサービスアカウントを
+/// impersonate するか等）、MCP サーバーの登録は spec.yml に書く口が無い
+/// (`field mcp not found in type spec.specFileV2`)。host-env と同じく
 /// このアプリ独自のサイドカーとして扱う。sbx はこのファイルを見ない。
+///
+/// 先頭にディレクティブを書くと、アプリが用意済みかを確認する。
+/// ディレクティブはコメント形式なので、ファイルごとシェルに貼っても動く。
+///
+/// ```sh
+/// #secret: mcp:datadog:pat   → sbx secret ls と突き合わせる
+/// #mcp: datadog              → sbx mcp ls と突き合わせ、作成時に --static-mcp で渡す
+/// ```
 pub const SECRET_SETUP_FILE: &str = "secret-setup";
+
+const SECRET_DIRECTIVE: &str = "#secret:";
+const MCP_DIRECTIVE: &str = "#mcp:";
+
+/// サイドカーを、ディレクティブと「表示するコマンド」に分ける。
+fn parse_setup(text: &str) -> (Vec<String>, Vec<String>, String) {
+    let mut secrets = Vec::new();
+    let mut mcp = Vec::new();
+    let mut lines = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix(SECRET_DIRECTIVE) {
+            push_name(&mut secrets, rest);
+        } else if let Some(rest) = trimmed.strip_prefix(MCP_DIRECTIVE) {
+            push_name(&mut mcp, rest);
+        } else {
+            lines.push(line);
+        }
+    }
+
+    (secrets, mcp, lines.join("\n").trim().to_string())
+}
+
+fn push_name(into: &mut Vec<String>, raw: &str) {
+    let name = raw.trim();
+    if !name.is_empty() && !into.iter().any(|n| n == name) {
+        into.push(name.to_string());
+    }
+}
 
 /// 1 つの kit ディレクトリの host-env を読む。無ければ空。
 pub fn host_env(kit_dir: &str) -> Vec<(String, String)> {
@@ -69,9 +108,11 @@ fn read_kit(path: &Path) -> Option<Kit> {
         .find(|p| p.is_file())?;
 
     let dir = path.display().to_string();
-    let setup = std::fs::read_to_string(path.join(SECRET_SETUP_FILE))
-        .ok()
-        .filter(|t| !t.trim().is_empty());
+    let (setup_secrets, required_mcp, setup_command) =
+        match std::fs::read_to_string(path.join(SECRET_SETUP_FILE)) {
+            Ok(text) => parse_setup(&text),
+            Err(_) => (Vec::new(), Vec::new(), String::new()),
+        };
 
     let mut kit = Kit {
         id,
@@ -81,8 +122,10 @@ fn read_kit(path: &Path) -> Option<Kit> {
         display_name: None,
         kind: None,
         requires_agent: None,
-        required_secrets: Vec::new(),
-        secret_setup: setup,
+        // spec の credentials は下で足す。ここはサイドカー由来の分。
+        required_secrets: setup_secrets,
+        required_mcp,
+        secret_setup: Some(setup_command).filter(|c| !c.is_empty()),
         spec_file: Some(spec_file.display().to_string()),
         error: None,
     };
@@ -97,7 +140,9 @@ fn read_kit(path: &Path) -> Option<Kit> {
             kit.kind = string_at(&spec, &["kind"]);
             // v2 は `requires: {agent: ...}`、v3 は `requires: [...]` のことがある。
             kit.requires_agent = string_at(&spec, &["requires", "agent"]);
-            kit.required_secrets = sequence_field(&spec, "credentials", "service");
+            for service in sequence_field(&spec, "credentials", "service") {
+                push_name(&mut kit.required_secrets, &service);
+            }
         }
         Err(e) => kit.error = Some(format!("spec を読めませんでした: {e}")),
     }
@@ -306,6 +351,51 @@ mod tests {
         assert!(by_id("gcp").secret_setup.unwrap().contains("--refresh 45m"));
         assert!(by_id("plain").required_secrets.is_empty());
         assert_eq!(by_id("plain").secret_setup, None);
+    }
+
+    #[test]
+    fn サイドカーのディレクティブを読み分ける() {
+        let tmp = TempDir::new("directives");
+        tmp.kit("datadog", Some("kind: mixin\nname: datadog\n"));
+        std::fs::write(
+            tmp.0.join("datadog").join(SECRET_SETUP_FILE),
+            "# 説明のコメントは残す\n\
+             #secret: mcp:datadog:pat\n\
+             #mcp: datadog\n\
+             sbx mcp add datadog --url https://example.com/mcp\n\
+             sbx secret set mcp:datadog:pat\n",
+        )
+        .unwrap();
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        let kit = &kits[0];
+
+        assert_eq!(kit.required_secrets, vec!["mcp:datadog:pat"]);
+        assert_eq!(kit.required_mcp, vec!["datadog"]);
+
+        // ディレクティブは表示用のコマンドから取り除き、普通のコメントは残す。
+        let command = kit.secret_setup.clone().unwrap();
+        assert!(command.contains("# 説明のコメントは残す"));
+        assert!(command.contains("sbx mcp add datadog"));
+        assert!(!command.contains("#secret:"));
+        assert!(!command.contains("#mcp:"));
+    }
+
+    #[test]
+    fn spec_とサイドカーの_secret_は合併して重複しない() {
+        let tmp = TempDir::new("union");
+        tmp.kit(
+            "both",
+            Some("kind: mixin\nname: both\ncredentials:\n  - service: gcp\n"),
+        );
+        std::fs::write(
+            tmp.0.join("both").join(SECRET_SETUP_FILE),
+            "#secret: gcp\n#secret: extra\nsbx secret set gcp\n",
+        )
+        .unwrap();
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        assert_eq!(kits[0].required_secrets, vec!["gcp", "extra"]);
     }
 
     #[test]

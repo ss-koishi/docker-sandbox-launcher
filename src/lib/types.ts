@@ -21,17 +21,24 @@ export type Kit = {
   requires_agent: string | null;
   /** kit ディレクトリの host-env が定義している環境変数のキー。 */
   host_env_keys: string[];
-  /** spec の `credentials[].service`。作成前に `sbx secret set` が要るもの。 */
+  /** 作成前に `sbx secret set` が要るもの。spec の credentials とサイドカーの #secret: の合併。 */
   required_secrets: string[];
+  /** サイドカーの #mcp:。`sbx mcp add` 済みである必要があり、作成時に --static-mcp で渡す。 */
+  required_mcp: string[];
   /** secret を用意するコマンド（kit ディレクトリの secret-setup）。 */
   secret_setup: string | null;
   spec_file: string | null;
   error: string | null;
 };
 
-/** `required_secrets` のうち、まだ登録されていないもの。 */
-export function missingSecrets(kit: Kit, stored: string[]): string[] {
-  return kit.required_secrets.filter((name) => !stored.includes(name));
+/** まだ用意できていない前提条件。 */
+export type Unmet = { secrets: string[]; mcp: string[] };
+
+export function unmet(kit: Kit, secrets: string[], mcp: string[]): Unmet {
+  return {
+    secrets: kit.required_secrets.filter((name) => !secrets.includes(name)),
+    mcp: kit.required_mcp.filter((name) => !mcp.includes(name))
+  };
 }
 
 export type WorkspaceMount = {
@@ -46,6 +53,8 @@ export type CreateRequest = {
   workspaces: WorkspaceMount[];
   /** `--kit` に渡す mixin 参照。 */
   kits: string[];
+  /** `--static-mcp` に渡す、登録済み MCP サーバー名。 */
+  static_mcp: string[];
 };
 
 /** ターミナル連携先。`auto` は herdr が動いていれば herdr、無ければ Ghostty。 */

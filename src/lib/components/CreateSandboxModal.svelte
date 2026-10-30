@@ -6,6 +6,7 @@
     errorMessage,
     listAgents,
     listKits,
+    listMcpServers,
     listSecrets
   } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
@@ -29,6 +30,7 @@
   let agents = $state<string[]>([]);
   let kits = $state<Kit[]>([]);
   let secrets = $state<string[]>([]);
+  let mcpServers = $state<string[]>([]);
   let loadError = $state<string | null>(null);
 
   let agentChoice = $state('');
@@ -48,6 +50,12 @@
   const canSubmit = $derived(!running && agent !== '' && nameValid);
   const mixins = $derived(kits.filter(isMixin));
 
+  /** 選択中の kit。 */
+  const chosen = $derived(mixins.filter((k) => selected.includes(k.path)));
+
+  /** 選択中の kit が要求する MCP サーバー。作成時に --static-mcp で渡す。 */
+  const staticMcp = $derived([...new Set(chosen.flatMap((k) => k.required_mcp))]);
+
   /** 選択中の kit が host-env で渡す環境変数のキー。 */
   const hostEnvKeys = $derived([
     ...new Set(
@@ -66,14 +74,16 @@
 
   async function load() {
     try {
-      const [a, k, s] = await Promise.all([
+      const [a, k, s, m] = await Promise.all([
         listAgents(),
         listKits().catch(() => []),
-        listSecrets().catch(() => [])
+        listSecrets().catch(() => []),
+        listMcpServers().catch(() => [])
       ]);
       agents = a;
       kits = k;
       secrets = s;
+      mcpServers = m;
       if (!agentChoice && a.length > 0) agentChoice = a.includes('claude') ? 'claude' : a[0];
     } catch (e) {
       loadError = errorMessage(e);
@@ -103,10 +113,13 @@
     workspaces.push(...extras.filter((m) => m.path.trim()));
 
     try {
-      await createSandbox({ agent, name: name.trim(), workspaces, kits: selected }, (line) => {
-        logs = [...logs, line];
-        queueMicrotask(() => logBox?.scrollTo({ top: logBox.scrollHeight }));
-      });
+      await createSandbox(
+        { agent, name: name.trim(), workspaces, kits: selected, static_mcp: staticMcp },
+        (line) => {
+          logs = [...logs, line];
+          queueMicrotask(() => logBox?.scrollTo({ top: logBox.scrollHeight }));
+        }
+      );
       oncreated();
     } catch (e) {
       runError = errorMessage(e);
@@ -245,7 +258,7 @@
           {hostEnvKeys.join('、')}
         </span>
       {/if}
-      <SecretSetup kits={mixins.filter((k) => selected.includes(k.path))} stored={secrets} />
+      <SecretSetup kits={chosen} {secrets} mcp={mcpServers} />
 
     {#if conflicts.length > 0}
         <span class="hint warning">
