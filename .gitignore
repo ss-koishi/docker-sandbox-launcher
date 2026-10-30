@@ -8,3 +8,6 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# macOS 専用なので、tauri icon が作る Android 用は追跡しない
+/src-tauri/icons/android/

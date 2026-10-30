@@ -1,0 +1,50 @@
+<!--
+  アプリアイコンの元データ。アプリ内の Logo.svelte と同じモチーフ
+  （積んだコンテナ + 水面）を、macOS のアイコンらしい角丸タイルに載せている。
+
+  ここから各サイズを生成する:
+    qlmanage -t -s 1024 -o packaging packaging/icon.svg   # → icon.svg.png
+    npm run tauri icon packaging/icon.png
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3379F7" />
+      <stop offset="1" stop-color="#1046C0" />
+    </linearGradient>
+  </defs>
+
+  <!-- 角丸タイル。半径は macOS の squircle に近い比率。 -->
+  <rect width="1024" height="1024" rx="228" ry="228" fill="url(#tile)" />
+
+  <!--
+    積んだコンテナ。下段 3 つ、上段 2 つ。
+    下段 3*168 + 2*24 = 552 → x=236 始まり、上段 2*168 + 24 = 360 → x=332 始まり。
+    どちらも中心が 512 に来るので左右対称に見える。
+  -->
+  <g fill="#FFFFFF">
+    <rect x="332" y="300" width="168" height="168" rx="28" />
+    <rect x="524" y="300" width="168" height="168" rx="28" />
+    <rect x="236" y="492" width="168" height="168" rx="28" />
+    <rect x="428" y="492" width="168" height="168" rx="28" />
+    <rect x="620" y="492" width="168" height="168" rx="28" />
+  </g>
+
+  <!--
+    水面。166px 幅の弧を 4 つ（= 2 周期）だけにして、
+    小さいサイズでも波として読めるようにしてある。
+    180 から 844 までなので、こちらも中心が 512。
+  -->
+  <path
+    d="M180 754
+       c41.5 -46 124.5 -46 166 0
+       c41.5 46 124.5 46 166 0
+       c41.5 -46 124.5 -46 166 0
+       c41.5 46 124.5 46 166 0"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="48"
+    stroke-linecap="round"
+    opacity="0.95"
+  />
+</svg>
