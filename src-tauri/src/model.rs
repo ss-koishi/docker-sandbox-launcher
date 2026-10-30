@@ -44,6 +44,10 @@ pub struct Kit {
     /// この kit を使うときにホスト側の sbx へ渡す環境変数のキー。
     /// 値は表示しない（必要なら host-env ファイルを直接見る）。
     pub host_env_keys: Vec<String>,
+    /// spec の `credentials[].service`。作成前に `sbx secret set` が要るもの。
+    pub required_secrets: Vec<String>,
+    /// secret を用意するためのコマンド（kit ディレクトリの secret-setup）。
+    pub secret_setup: Option<String>,
     /// 見つかった spec ファイルの絶対パス。
     pub spec_file: Option<String>,
     /// spec の読み取りに失敗した場合の理由。

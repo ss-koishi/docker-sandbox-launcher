@@ -97,6 +97,33 @@ pub fn list_kits(app: AppHandle) -> Result<Vec<Kit>, String> {
     kits::scan(&settings::load(&app).kits_dir)
 }
 
+/// 登録済み secret の名前。kit が要求する credentials と突き合わせるのに使う。
+///
+/// `sbx secret ls` が返すのは有無だけで、期限や refresh 設定は出てこない。
+/// command 方式の secret は sbx が `--refresh` に従って取り直すので、
+/// ここで見るのは「用意されているか」だけでよい。
+#[tauri::command]
+pub async fn list_secrets(app: AppHandle) -> Result<Vec<String>, String> {
+    #[derive(Deserialize)]
+    struct Secret {
+        name: String,
+        #[serde(default)]
+        scope: String,
+    }
+
+    blocking(move || {
+        let entries: Option<Vec<Secret>> = sbx(&app)?.json(&["secret", "ls"])?;
+        Ok(entries
+            .unwrap_or_default()
+            .into_iter()
+            // sandbox 限定のものは作成前の判定には使えないので除く。
+            .filter(|s| s.scope.is_empty() || s.scope == "global")
+            .map(|s| s.name)
+            .collect())
+    })
+    .await
+}
+
 /// kits ディレクトリの外を読み書きしないための関門。解決済みの絶対パスを返す。
 fn inside_kits_dir(app: &AppHandle, path: &str) -> Result<std::path::PathBuf, String> {
     let root = std::fs::canonicalize(settings::load(app).kits_dir)

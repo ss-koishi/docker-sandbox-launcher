@@ -1,0 +1,126 @@
+<script lang="ts">
+  import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+  import { kitLabel, missingSecrets, type Kit } from '$lib/types';
+  import Icon from './Icon.svelte';
+
+  type Props = {
+    /** 判定対象の kit。 */
+    kits: Kit[];
+    /** 登録済み secret の名前。 */
+    stored: string[];
+  };
+
+  let { kits, stored }: Props = $props();
+
+  /** 未設定の secret を持つ kit だけを、用意コマンドとともに並べる。 */
+  const pending = $derived(
+    kits
+      .map((kit) => ({ kit, missing: missingSecrets(kit, stored) }))
+      .filter(({ missing }) => missing.length > 0)
+      .map(({ kit, missing }) => ({
+        kit,
+        missing,
+        // secret-setup が無い kit には、せめて一般形を出す。
+        command:
+          kit.secret_setup?.trim() || missing.map((n) => `sbx secret set ${n}`).join('\n')
+      }))
+  );
+
+  let copied = $state<string | null>(null);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function copy(path: string, command: string) {
+    await writeText(command);
+    copied = path;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => (copied = null), 3000);
+  }
+
+</script>
+
+{#if pending.length > 0}
+  <div class="pending">
+    <p class="lead">
+      <Icon name="key" size={15} />
+      <span>作成前に認証情報の用意が要ります。ホストで次を実行してください。</span>
+    </p>
+
+    {#each pending as { kit, missing, command } (kit.path)}
+      <div class="item">
+        <div class="meta">
+          <strong>{kitLabel(kit)}</strong>
+          {#each missing as name (name)}
+            <span class="chip warning">{name} 未設定</span>
+          {/each}
+        </div>
+
+        <div class="command">
+          <pre>{command}</pre>
+          <button
+            type="button"
+            class="icon"
+            onclick={() => copy(kit.path, command)}
+            title="コピー"
+            aria-label="{kitLabel(kit)} の用意コマンドをコピー"
+          >
+            <Icon name={copied === kit.path ? 'check' : 'copy'} size={15} />
+          </button>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+
+<style>
+  .pending {
+    border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+    border-left: 3px solid var(--amber);
+    background: color-mix(in srgb, var(--amber) 8%, transparent);
+    border-radius: var(--radius);
+    padding: 13px 15px;
+  }
+
+  .lead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 var(--space-snug);
+    font-size: 13px;
+  }
+
+  .lead :global(svg) {
+    color: var(--amber);
+    flex: none;
+  }
+
+  .item + .item {
+    margin-top: 14px;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  .command {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 9px 9px 12px;
+  }
+
+  .command pre {
+    flex: 1;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+</style>

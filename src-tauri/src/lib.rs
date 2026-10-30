@@ -10,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::save_settings,
@@ -17,6 +18,7 @@ pub fn run() {
             commands::list_sandboxes,
             commands::list_agents,
             commands::list_kits,
+            commands::list_secrets,
             commands::read_kit_spec,
             commands::read_kit_host_env,
             commands::write_kit_host_env,

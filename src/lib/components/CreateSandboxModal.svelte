@@ -1,10 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createSandbox, ensureWorkspaceDir, errorMessage, listAgents, listKits } from '$lib/api';
+  import {
+    createSandbox,
+    ensureWorkspaceDir,
+    errorMessage,
+    listAgents,
+    listKits,
+    listSecrets
+  } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { isMixin, kitLabel, type Kit, type LogLine, type WorkspaceMount } from '$lib/types';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
+  import SecretSetup from './SecretSetup.svelte';
   import PathInput from './PathInput.svelte';
 
   type Props = {
@@ -20,6 +28,7 @@
 
   let agents = $state<string[]>([]);
   let kits = $state<Kit[]>([]);
+  let secrets = $state<string[]>([]);
   let loadError = $state<string | null>(null);
 
   let agentChoice = $state('');
@@ -57,9 +66,14 @@
 
   async function load() {
     try {
-      const [a, k] = await Promise.all([listAgents(), listKits().catch(() => [])]);
+      const [a, k, s] = await Promise.all([
+        listAgents(),
+        listKits().catch(() => []),
+        listSecrets().catch(() => [])
+      ]);
       agents = a;
       kits = k;
+      secrets = s;
       if (!agentChoice && a.length > 0) agentChoice = a.includes('claude') ? 'claude' : a[0];
     } catch (e) {
       loadError = errorMessage(e);
@@ -231,7 +245,9 @@
           {hostEnvKeys.join('、')}
         </span>
       {/if}
-      {#if conflicts.length > 0}
+      <SecretSetup kits={mixins.filter((k) => selected.includes(k.path))} stored={secrets} />
+
+    {#if conflicts.length > 0}
         <span class="hint warning">
           選択中の kit が別のエージェントを要求しています（{conflicts
             .map((k) => `${kitLabel(k)} → ${k.requires_agent}`)

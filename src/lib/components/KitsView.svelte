@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { revealItemInDir } from '@tauri-apps/plugin-opener';
-  import { errorMessage, listKits, readKitSpec } from '$lib/api';
+  import { errorMessage, listKits, listSecrets, readKitSpec } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
   import { kitLabel, type Kit } from '$lib/types';
   import HostEnvModal from './HostEnvModal.svelte';
+  import SecretSetup from './SecretSetup.svelte';
   import Icon from './Icon.svelte';
 
   let kits = $state<Kit[]>([]);
+  /** 登録済み secret の名前。 */
+  let secrets = $state<string[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
   /** spec を展開中の kit のパス → 原文。 */
@@ -21,6 +24,7 @@
     loading = true;
     try {
       kits = await listKits();
+      secrets = await listSecrets().catch(() => []);
       error = null;
     } catch (e) {
       kits = [];
@@ -85,7 +89,7 @@
           <th>種別</th>
           <th>要求エージェント</th>
           <th>host-env</th>
-          <th>パス</th>
+          <th>必要な secret</th>
           <th></th>
         </tr>
       </thead>
@@ -93,10 +97,13 @@
         {#each kits as kit (kit.path)}
           <tr>
             <td class="name">
-              {kitLabel(kit)}
-              {#if kit.error}
-                <span class="chip warning">spec 読み取り失敗</span>
-              {/if}
+              <div class="name-main">
+                {kitLabel(kit)}
+                {#if kit.error}
+                  <span class="chip warning">spec 読み取り失敗</span>
+                {/if}
+              </div>
+              <code class="path muted">{kit.path}</code>
             </td>
             <td>
               {#if kit.kind}<span class="chip">{kit.kind}</span>{:else}<span class="muted">—</span
@@ -119,7 +126,24 @@
                 {/if}
               </button>
             </td>
-            <td><code class="path">{kit.path}</code></td>
+            <td>
+              {#if kit.required_secrets.length === 0}
+                <span class="muted">—</span>
+              {:else}
+                <span class="secrets">
+                  {#each kit.required_secrets as name (name)}
+                    <span
+                      class="chip"
+                      class:warning={!secrets.includes(name)}
+                      title={secrets.includes(name) ? '設定済み' : '未設定'}
+                    >
+                      {secrets.includes(name) ? '✓' : '!'}
+                      {name}
+                    </span>
+                  {/each}
+                </span>
+              {/if}
+            </td>
             <td class="actions">
               <button
                 type="button"
@@ -169,6 +193,12 @@
   {/if}
 </div>
 
+{#if kits.length > 0}
+  <div class="secret-setup">
+    <SecretSetup {kits} stored={secrets} />
+  </div>
+{/if}
+
 {#if editing}
   <HostEnvModal
     kit={editing}
@@ -207,8 +237,28 @@
     overflow: hidden;
   }
 
+  /* パスは識別の補助。名前の下に小さく置いて列を節約する。 */
+  .name-main {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
   .path {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
     word-break: break-all;
+  }
+
+  .secrets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .secret-setup {
+    margin-top: var(--space-gap);
   }
 
   /* セルごと押せるようにして、空のときも追加導線にする。 */

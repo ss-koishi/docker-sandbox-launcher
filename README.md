@@ -91,6 +91,34 @@ Kits 画面と作成画面には、その kit がどのキーを渡すかがチ�
 なお kit を 1 つも指定せずエージェントだけを選んだ場合、この仕組みは効きません。その構成で
 ホスト側の環境変数が要るときは、シェルの設定で export してください。
 
+### kit ごとの secret-setup
+
+`spec.yml` に `credentials` を持つ kit は、作成前にホストで `sbx secret set` を済ませて
+おく必要があります。アプリはこれを**確認するだけ**で、代わりに実行はしません。
+
+- 必要な secret は `spec.yml` の `credentials[].service` から読み取ります
+- 登録済みかどうかは `sbx secret ls` と突き合わせます
+- 用意するコマンドは kit ディレクトリの **`secret-setup`** ファイルに置きます
+
+```
+~/.sbx/kits/gcp/
+├── spec.yml        credentials: [{ service: gcp, ... }]
+└── secret-setup    ← 未設定のときにアプリが表示する
+```
+
+```sh
+# secret-setup
+sbx secret set gcp --command "gcloud auth application-default print-access-token \
+  --impersonate-service-account=... --lifetime=50m" --refresh 45m
+```
+
+未設定の secret があると、Kits 画面と作成ダイアログに警告とこのコマンドが出て、コピー
+ボタンで取れます。`secret-setup` が無い kit には `sbx secret set <名前>` を表示します。
+
+`sbx secret ls` が返すのは有無だけで、有効期限は分かりません。ただし `--command` 方式の
+secret は `--refresh` に従って sbx 自身が取り直すので、確認すべきは「用意されているか」
+だけです。
+
 ### ターミナル連携
 
 sandbox 一覧の端末ボタンを押すと `sbx run --name <名前>` が実行されます。飛び先は 3 つから選べ、既定の「自動」は herdr サーバーが動いていれば herdr、そうでなければ Ghostty を使います。

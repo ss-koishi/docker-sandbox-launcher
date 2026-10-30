@@ -15,6 +15,13 @@ const SPEC_FILES: &[&str] = &["spec.yml", "spec.yaml", "kit.yml", "kit.yaml"];
 /// このアプリ独自のサイドカーとして扱う。sbx はこのファイルを見ない。
 pub const HOST_ENV_FILE: &str = "host-env";
 
+/// kit が要求する secret を用意するためのコマンドを書いておくファイル。
+///
+/// `sbx secret set` に渡す引数は環境ごとに違う（どのサービスアカウントを
+/// impersonate するか等）ので spec.yml には書けない。host-env と同じく
+/// このアプリ独自のサイドカーとして扱う。sbx はこのファイルを見ない。
+pub const SECRET_SETUP_FILE: &str = "secret-setup";
+
 /// 1 つの kit ディレクトリの host-env を読む。無ければ空。
 pub fn host_env(kit_dir: &str) -> Vec<(String, String)> {
     std::fs::read_to_string(Path::new(kit_dir).join(HOST_ENV_FILE))
@@ -62,6 +69,10 @@ fn read_kit(path: &Path) -> Option<Kit> {
         .find(|p| p.is_file())?;
 
     let dir = path.display().to_string();
+    let setup = std::fs::read_to_string(path.join(SECRET_SETUP_FILE))
+        .ok()
+        .filter(|t| !t.trim().is_empty());
+
     let mut kit = Kit {
         id,
         host_env_keys: host_env(&dir).into_iter().map(|(k, _)| k).collect(),
@@ -70,6 +81,8 @@ fn read_kit(path: &Path) -> Option<Kit> {
         display_name: None,
         kind: None,
         requires_agent: None,
+        required_secrets: Vec::new(),
+        secret_setup: setup,
         spec_file: Some(spec_file.display().to_string()),
         error: None,
     };
@@ -84,11 +97,35 @@ fn read_kit(path: &Path) -> Option<Kit> {
             kit.kind = string_at(&spec, &["kind"]);
             // v2 は `requires: {agent: ...}`、v3 は `requires: [...]` のことがある。
             kit.requires_agent = string_at(&spec, &["requires", "agent"]);
+            kit.required_secrets = sequence_field(&spec, "credentials", "service");
         }
         Err(e) => kit.error = Some(format!("spec を読めませんでした: {e}")),
     }
 
     Some(kit)
+}
+
+/// `key` のシーケンスを辿り、各要素の `field` を集める。形が違えば空。
+///
+/// ```yaml
+/// credentials:
+///   - service: gcp      # ← field = "service" なら ["gcp"]
+/// ```
+fn sequence_field(value: &serde_yaml::Value, key: &str, field: &str) -> Vec<String> {
+    let Some(items) = value
+        .as_mapping()
+        .and_then(|m| m.get(serde_yaml::Value::from(key)))
+        .and_then(serde_yaml::Value::as_sequence)
+    else {
+        return Vec::new();
+    };
+
+    let mut found: Vec<String> = items
+        .iter()
+        .filter_map(|item| string_at(item, &[field]))
+        .collect();
+    found.dedup();
+    found
 }
 
 /// ネストしたマッピングを辿って文字列を取り出す。形が違えば素直に `None`。
@@ -241,6 +278,46 @@ mod tests {
         );
         // 存在しないディレクトリを混ぜても落ちない。
         assert!(host_env_for(&["/no/such/kit".to_string()]).is_empty());
+    }
+
+    #[test]
+    fn credentials_から必要な_secret_を拾う() {
+        let tmp = TempDir::new("secrets");
+        tmp.kit(
+            "gcp",
+            Some(
+                "kind: mixin\nname: gcp\ncredentials:\n  \
+                 - service: gcp\n    required: true\n    apiKey:\n      name: SBX_GCP_TOKEN\n  \
+                 - service: datadog-pat\n    required: true\n",
+            ),
+        );
+        // credentials を持たない kit は空のまま。
+        tmp.kit("plain", Some("kind: mixin\nname: plain\n"));
+        std::fs::write(
+            tmp.0.join("gcp").join(SECRET_SETUP_FILE),
+            "sbx secret set gcp --command \"...\" --refresh 45m\n",
+        )
+        .unwrap();
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        let by_id = |id: &str| kits.iter().find(|k| k.id == id).unwrap().clone();
+
+        assert_eq!(by_id("gcp").required_secrets, vec!["gcp", "datadog-pat"]);
+        assert!(by_id("gcp").secret_setup.unwrap().contains("--refresh 45m"));
+        assert!(by_id("plain").required_secrets.is_empty());
+        assert_eq!(by_id("plain").secret_setup, None);
+    }
+
+    #[test]
+    fn credentials_の形が違っても落ちない() {
+        let tmp = TempDir::new("badcreds");
+        // シーケンスではなくマッピング。
+        tmp.kit("a", Some("kind: mixin\nname: a\ncredentials:\n  service: gcp\n"));
+        // service キーが無い要素。
+        tmp.kit("b", Some("kind: mixin\nname: b\ncredentials:\n  - required: true\n"));
+
+        let kits = scan(&tmp.0.display().to_string()).unwrap();
+        assert!(kits.iter().all(|k| k.required_secrets.is_empty()));
     }
 
     #[test]

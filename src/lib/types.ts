@@ -21,9 +21,18 @@ export type Kit = {
   requires_agent: string | null;
   /** kit ディレクトリの host-env が定義している環境変数のキー。 */
   host_env_keys: string[];
+  /** spec の `credentials[].service`。作成前に `sbx secret set` が要るもの。 */
+  required_secrets: string[];
+  /** secret を用意するコマンド（kit ディレクトリの secret-setup）。 */
+  secret_setup: string | null;
   spec_file: string | null;
   error: string | null;
 };
+
+/** `required_secrets` のうち、まだ登録されていないもの。 */
+export function missingSecrets(kit: Kit, stored: string[]): string[] {
+  return kit.required_secrets.filter((name) => !stored.includes(name));
+}
 
 export type WorkspaceMount = {
   path: string;
