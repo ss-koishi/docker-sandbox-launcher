@@ -202,6 +202,18 @@ pub fn merge_env(layers: &[Vec<(String, String)>]) -> Vec<(String, String)> {
     merged
 }
 
+/// `sbx mcp ls` の 1 要素。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServer {
+    pub name: String,
+    /// `ready` なら使える。`needs-auth` は登録済みだが認証がまだ。
+    #[serde(default)]
+    pub status: String,
+    /// sbx が示す次の手順（例 `sbx mcp auth datadog`）。
+    #[serde(default)]
+    pub next_step: Option<String>,
+}
+
 /// sbx の検出結果。設定画面で「見つかっているか」を示すのに使う。
 #[derive(Debug, Clone, Serialize)]
 pub struct SbxInfo {

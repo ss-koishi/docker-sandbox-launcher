@@ -6,6 +6,7 @@ import type {
   LifecycleVerb,
   LogLine,
   Sandbox,
+  McpServer,
   SbxInfo,
   TerminalInfo
 } from './types';
@@ -27,7 +28,7 @@ export const listKits = () => invoke<Kit[]>('list_kits');
 export const listSecrets = () => invoke<string[]>('list_secrets');
 
 /** ホストに登録済みの MCP サーバー名。kit の required_mcp と突き合わせる。 */
-export const listMcpServers = () => invoke<string[]>('list_mcp_servers');
+export const listMcpServers = () => invoke<McpServer[]>('list_mcp_servers');
 
 export const readKitSpec = (path: string) => invoke<string>('read_kit_spec', { path });
 

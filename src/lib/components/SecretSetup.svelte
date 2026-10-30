@@ -1,6 +1,6 @@
 <script lang="ts">
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-  import { kitLabel, unmet, type Kit } from '$lib/types';
+  import { kitLabel, unmet, type Kit, type McpServer } from '$lib/types';
   import Icon from './Icon.svelte';
 
   type Props = {
@@ -8,8 +8,8 @@
     kits: Kit[];
     /** 登録済み secret の名前。 */
     secrets: string[];
-    /** 登録済み MCP サーバーの名前。 */
-    mcp: string[];
+    /** 登録済み MCP サーバー。 */
+    mcp: McpServer[];
   };
 
   let { kits, secrets, mcp }: Props = $props();
@@ -23,9 +23,16 @@
         kit,
         lack,
         // secret-setup が無い kit には、せめて一般形を出す。
-        command:
+        // sbx が next_step を返すなら、推測より確かなのでそれを足す。
+        command: [
           kit.secret_setup?.trim() ||
-          lack.secrets.map((n) => `sbx secret set ${n}`).join('\n')
+            lack.secrets.map((n) => `sbx secret set ${n}`).join('\n'),
+          ...lack.mcp
+            .map((n) => mcp.find((s) => s.name === n)?.next_step)
+            .filter((step): step is string => !!step)
+        ]
+          .filter(Boolean)
+          .join('\n')
       }))
   );
 
@@ -56,7 +63,10 @@
             <span class="chip warning">secret: {name}</span>
           {/each}
           {#each lack.mcp as name (name)}
-            <span class="chip warning">MCP: {name}</span>
+            <span class="chip warning">
+              MCP: {name}
+              {mcp.find((s) => s.name === name)?.status ?? '未登録'}
+            </span>
           {/each}
           {#each lack.files as path (path)}
             <span class="chip warning">file: {path}</span>

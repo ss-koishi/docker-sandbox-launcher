@@ -7,7 +7,7 @@ use tauri::AppHandle;
 use tauri::ipc::Channel;
 
 use crate::kits;
-use crate::model::{AppSettings, CreateRequest, Kit, Sandbox, SbxInfo};
+use crate::model::{AppSettings, CreateRequest, Kit, McpServer, Sandbox, SbxInfo};
 use crate::sbx::{LogLine, Sbx};
 use crate::settings;
 use crate::terminal::{self, TerminalInfo};
@@ -214,17 +214,16 @@ pub async fn create_sandbox(
     .await
 }
 
-/// ホストに登録済みの MCP サーバー名。kit の required_mcp と突き合わせる。
+/// ホストに登録済みの MCP サーバー。kit の required_mcp と突き合わせる。
+///
+/// 登録してあるだけでは足りない。OAuth が要るサーバーは認証を通すまで
+/// `status` が `needs-auth` のままで、ゲートウェイは 403 を食う。
+/// そのため名前だけでなく状態も返す。
 #[tauri::command]
-pub async fn list_mcp_servers(app: AppHandle) -> Result<Vec<String>, String> {
-    #[derive(Deserialize)]
-    struct Server {
-        name: String,
-    }
-
+pub async fn list_mcp_servers(app: AppHandle) -> Result<Vec<McpServer>, String> {
     blocking(move || {
-        let entries: Option<Vec<Server>> = sbx(&app)?.json(&["mcp", "ls"])?;
-        Ok(entries.unwrap_or_default().into_iter().map(|s| s.name).collect())
+        let entries: Option<Vec<McpServer>> = sbx(&app)?.json(&["mcp", "ls"])?;
+        Ok(entries.unwrap_or_default())
     })
     .await
 }

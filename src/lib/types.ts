@@ -35,13 +35,28 @@ export type Kit = {
   error: string | null;
 };
 
+/** `sbx mcp ls` の 1 要素。 */
+export type McpServer = {
+  name: string;
+  /** `ready` なら使える。`needs-auth` は登録済みだが認証がまだ。 */
+  status: string;
+  /** sbx が示す次の手順（例 `sbx mcp auth datadog`）。 */
+  next_step: string | null;
+};
+
+/** 登録されていて、かつ使える状態か。 */
+export function isMcpReady(servers: McpServer[], name: string): boolean {
+  return servers.some((s) => s.name === name && s.status === 'ready');
+}
+
 /** まだ用意できていない前提条件。 */
 export type Unmet = { secrets: string[]; mcp: string[]; files: string[] };
 
-export function unmet(kit: Kit, secrets: string[], mcp: string[]): Unmet {
+export function unmet(kit: Kit, secrets: string[], mcp: McpServer[]): Unmet {
   return {
     secrets: kit.required_secrets.filter((name) => !secrets.includes(name)),
-    mcp: kit.required_mcp.filter((name) => !mcp.includes(name)),
+    // 登録してあるだけでは足りない。OAuth 未認証だとゲートウェイが 403 を食う。
+    mcp: kit.required_mcp.filter((name) => !isMcpReady(mcp, name)),
     // ファイルの有無はフロントから見られないので Rust の判定をそのまま使う。
     files: kit.missing_files
   };

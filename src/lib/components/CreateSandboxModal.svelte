@@ -10,7 +10,14 @@
     listSecrets
   } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
-  import { isMixin, kitLabel, type Kit, type LogLine, type WorkspaceMount } from '$lib/types';
+  import {
+    isMixin,
+    kitLabel,
+    type Kit,
+    type LogLine,
+    type McpServer,
+    type WorkspaceMount
+  } from '$lib/types';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
   import SecretSetup from './SecretSetup.svelte';
@@ -30,7 +37,7 @@
   let agents = $state<string[]>([]);
   let kits = $state<Kit[]>([]);
   let secrets = $state<string[]>([]);
-  let mcpServers = $state<string[]>([]);
+  let mcpServers = $state<McpServer[]>([]);
   let loadError = $state<string | null>(null);
 
   let agentChoice = $state('');

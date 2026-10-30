@@ -3,7 +3,7 @@
   import { revealItemInDir } from '@tauri-apps/plugin-opener';
   import { errorMessage, listKits, listMcpServers, listSecrets, readKitSpec } from '$lib/api';
   import { settings } from '$lib/settings.svelte';
-  import { kitLabel, type Kit } from '$lib/types';
+  import { isMcpReady, kitLabel, type Kit, type McpServer } from '$lib/types';
   import HostEnvModal from './HostEnvModal.svelte';
   import SecretSetup from './SecretSetup.svelte';
   import Icon from './Icon.svelte';
@@ -12,7 +12,7 @@
   /** 登録済み secret の名前。 */
   let secrets = $state<string[]>([]);
   /** 登録済み MCP サーバーの名前。 */
-  let mcpServers = $state<string[]>([]);
+  let mcpServers = $state<McpServer[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
   /** spec を展開中の kit のパス → 原文。 */
@@ -140,8 +140,8 @@
                     </span>
                   {/each}
                   {#each kit.required_mcp as name (name)}
-                    <span class="chip" class:warning={!mcpServers.includes(name)}>
-                      {mcpServers.includes(name) ? '✓' : '!'} MCP: {name}
+                    <span class="chip" class:warning={!isMcpReady(mcpServers, name)}>
+                      {isMcpReady(mcpServers, name) ? '✓' : '!'} MCP: {name}
                     </span>
                   {/each}
                   {#each kit.required_files as path (path)}
