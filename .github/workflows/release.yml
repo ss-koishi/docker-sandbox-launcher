@@ -91,12 +91,24 @@ jobs:
           echo "file=$(basename "$dmg")" >> "$GITHUB_OUTPUT"
           echo "sha256=$(sha256sum "$dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - name: tap を checkout
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.TAP_REPOSITORY }}
-          token: ${{ secrets.TAP_GITHUB_TOKEN }}
-          path: tap
+      # actions/checkout は使えない。tap が空だと branch が無く
+      # "couldn't find remote ref refs/heads/main" で落ちるため。
+      # init してから fetch を試し、空なら新規の main として push する。
+      - name: tap を用意
+        env:
+          TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p tap
+          cd tap
+          git init -q -b main
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${TAP_REPOSITORY}.git"
+          if git fetch --depth=1 origin main 2>/dev/null; then
+            git reset --hard origin/main
+            echo "既存の tap を取り込みました"
+          else
+            echo "tap が空なので main を新規に作ります"
+          fi
 
       - name: cask を生成
         env:
@@ -128,4 +140,5 @@ jobs:
           git add "Casks/${CASK_TOKEN}.rb"
           git diff --cached --quiet && exit 0
           git commit -m "${CASK_TOKEN} ${VERSION}"
-          git push
+          # 新規に作った main には upstream が無いので、明示して push する。
+          git push origin main
