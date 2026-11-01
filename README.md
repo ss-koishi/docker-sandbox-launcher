@@ -248,7 +248,10 @@ git remote add origin git@github.com:ss-koishi/docker-sandbox-launcher.git
 git push -u origin main
 
 # 2. tap のリポジトリ（public、名前は homebrew- 始まりが必須）
-#    中身は空でよい。ワークフローが Casks/ を作る
+#    README などで 1 コミット置いて main を作っておくこと。
+#    空のままだと branch が無く、リリース時の checkout が
+#      fatal: couldn't find remote ref refs/heads/main
+#    で失敗する。Casks/ はワークフローが作る。
 ```
 
 GitHub Actions の `GITHUB_TOKEN` は別リポジトリへ push できないので、tap 更新用に
