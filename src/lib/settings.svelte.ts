@@ -8,6 +8,7 @@ const EMPTY: AppSettings = {
   workspace_root: '',
   terminal: 'auto',
   herdr_path: '',
+  herdr_app_path: '',
   terminal_command: '',
   focus_terminal: true
 };

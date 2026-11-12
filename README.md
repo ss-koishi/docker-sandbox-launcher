@@ -8,7 +8,7 @@ Tauri v2 + SvelteKit で作ってあり、配布物はシステムの WKWebView 
 - **サンドボックスの一覧** — `sbx ls` の内容（状態・エージェント・workspace・作成日時）をカード表示
 - **作成** — エージェント、sandbox 名、workspace、kits（mixin）を選んで `sbx create` を実行。進捗は逐次表示される
 - **削除** — 確認ダイアログののち `sbx rm --force`
-- **ターミナルで開く** — 一覧から `sbx run --name <名前>` を herdr / Ghostty で実行
+- **ターミナルで開く** — 一覧から `sbx run --name <名前>` を herdr / Herdr（GUI）/ Ghostty で実行
 - **kits ディレクトリの設定** — kit を置いてあるディレクトリを GUI で指定し、配下の kit を一覧・spec を閲覧
 
 ## インストール
@@ -83,8 +83,8 @@ error: invalid spec.yaml: field hostEnvironment not found in type spec.specFileV
 | 作成 | 作成画面で選んだ kit |
 | ターミナルで開く | `sbx inspect <名前>` が返す `kits` |
 
-ターミナル経路では、その先の `sbx run` にも届くよう herdr の `--env` や Ghostty の
-`environment variables` として引き継ぎます。
+ターミナル経路では、その先の `sbx run` にも届くよう herdr の `--env`、Herdr（GUI）の
+`/usr/bin/env` 前置き、Ghostty の `environment variables` として引き継ぎます。
 
 Kits 画面と作成画面には、その kit がどのキーを渡すかがチップで表示されます（値は出しません）。
 
@@ -165,7 +165,7 @@ sbx 側が直ったらそのブロックは削除できます。
 
 ### ターミナル連携
 
-sandbox 一覧の端末ボタンを押すと `sbx run --name <名前>` が実行されます。飛び先は 3 つから選べ、既定の「自動」は herdr サーバーが動いていれば herdr、そうでなければ Ghostty を使います。
+sandbox 一覧の端末ボタンを押すと `sbx run --name <名前>` が実行されます。飛び先は 4 つから選べ、既定の「自動」は Herdr（GUI）のウィンドウが開いていればそれ、次に herdr サーバーが動いていれば herdr、どちらも無ければ Ghostty を使います。
 
 **herdr** — ソケット API で sandbox 名のワークスペースを作り、その pane でコマンドを走らせます。
 
@@ -175,6 +175,17 @@ herdr pane run <pane_id> <sbx のパス> run --name <名前>
 ```
 
 herdr のサーバーが pane を持つので、ターミナルを閉じてもセッションは残ります。herdr の TUI 自体は別のターミナル上で動くため、既定では開いたあと Ghostty を前面に出します（設定で切れます）。
+
+**Herdr（GUI）** — デスクトップアプリ（`herdr-app`）に sandbox 名の space を作り、その最初のターミナルでコマンドを走らせます。
+
+```sh
+herdr-app do space.new --name <名前> --folder <workspace> \
+  --argv '["/usr/bin/env","KEY=VALUE","<sbx のパス>","run","--name","<名前>"]'
+```
+
+`space.new` には環境変数の引数が無いので、kit の host-env は `/usr/bin/env` を頭に挟む形で渡します。ターミナルの実体は herdr-core が持つため、ウィンドウを閉じてもセッションは残ります。開いたあとは既定で Herdr を前面に出します（`open -b dev.herdr.app`、設定で切れます）。
+
+ウィンドウが開いているかは `herdr-app status` の成否で判定します。開いていないときはこの飛び先を選べず、エラーになります（アプリ側から Herdr を起動することはしません）。
 
 **Ghostty** — AppleScript で既存インスタンスに新しいウィンドウを開きます。
 
@@ -277,7 +288,7 @@ Apple Developer Program に加入して Developer ID Application 証明書を用
 ```
 src-tauri/src/
   sbx.rs        sbx CLI のラッパー（実行ファイル探索・JSON 取得・出力ストリーミング）
-  terminal.rs   herdr / Ghostty / カスタムコマンドへの橋渡し
+  terminal.rs   herdr / Herdr（GUI）/ Ghostty / カスタムコマンドへの橋渡し
   commands.rs   フロントから呼ぶ Tauri コマンド
   kits.rs       kits ディレクトリの走査と spec の読み取り
   model.rs      フロントと共有するデータ構造

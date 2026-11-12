@@ -78,8 +78,11 @@ export type CreateRequest = {
   static_mcp: string[];
 };
 
-/** ターミナル連携先。`auto` は herdr が動いていれば herdr、無ければ Ghostty。 */
-export type TerminalTarget = 'auto' | 'herdr' | 'ghostty' | 'custom';
+/**
+ * ターミナル連携先。`auto` は Herdr（GUI）のウィンドウ → herdr サーバー →
+ * Ghostty の順に、使えるものを選ぶ。
+ */
+export type TerminalTarget = 'auto' | 'herdr' | 'herdr-gui' | 'ghostty' | 'custom';
 
 export type AppSettings = {
   kits_dir: string;
@@ -87,6 +90,7 @@ export type AppSettings = {
   workspace_root: string;
   terminal: TerminalTarget;
   herdr_path: string;
+  herdr_app_path: string;
   /** `terminal` が `custom` のときのテンプレート。`{command}` を置換する。 */
   terminal_command: string;
   focus_terminal: boolean;
@@ -97,11 +101,15 @@ export type TerminalInfo = {
   effective: Exclude<TerminalTarget, 'auto'>;
   herdr_running: boolean;
   herdr_path: string | null;
+  /** Herdr デスクトップアプリのウィンドウが開いているか。 */
+  herdr_app_running: boolean;
+  herdr_app_path: string | null;
   ghostty_installed: boolean;
 };
 
 export const TERMINAL_LABELS: Record<Exclude<TerminalTarget, 'auto'>, string> = {
   herdr: 'herdr',
+  'herdr-gui': 'Herdr（GUI）',
   ghostty: 'Ghostty',
   custom: 'カスタムコマンド'
 };

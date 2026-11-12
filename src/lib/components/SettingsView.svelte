@@ -13,8 +13,9 @@
   import PathInput from './PathInput.svelte';
 
   const TERMINAL_OPTIONS: { value: TerminalTarget; label: string }[] = [
-    { value: 'auto', label: '自動（herdr が動いていれば herdr、なければ Ghostty）' },
+    { value: 'auto', label: '自動（Herdr GUI → herdr → Ghostty の順に使えるもの）' },
     { value: 'herdr', label: 'herdr（workspace を作成）' },
+    { value: 'herdr-gui', label: 'Herdr（GUI）（space を作成）' },
     { value: 'ghostty', label: 'Ghostty（新しいウィンドウ）' },
     { value: 'custom', label: 'カスタムコマンド' }
   ];
@@ -144,38 +145,60 @@
         sandbox 一覧の端末ボタンから <code>sbx run --name &lt;名前&gt;</code> を実行する先です。
         {#if term}
           現在の宛先: <strong>{TERMINAL_LABELS[term.effective] ?? term.effective}</strong>
-          （herdr: {term.herdr_running ? '稼働中' : '停止'} ／ Ghostty:
+          （herdr: {term.herdr_running ? '稼働中' : '停止'} ／ Herdr GUI:
+          {term.herdr_app_running ? 'ウィンドウあり' : 'ウィンドウなし'} ／ Ghostty:
           {term.ghostty_installed ? '導入済み' : '未検出'}）
         {/if}
       </span>
     </div>
 
     <!-- 開く先の選択に従属する項目なので、入れ子にして親との関係を示す。 -->
-    {#if draft.terminal === 'auto' || draft.terminal === 'herdr'}
+    {#if draft.terminal === 'auto' || draft.terminal === 'herdr' || draft.terminal === 'herdr-gui'}
       <div class="subgroup">
-        <div class="field">
-          <span class="label">herdr のパス</span>
-          <input
-            type="text"
-            bind:value={draft.herdr_path}
-            spellcheck="false"
-            placeholder="（自動検出）"
-          />
-          <span class="hint">
-            sandbox 名のワークスペースを作り、その pane で sbx run を実行します。
-            {#if term?.herdr_path}
-              現在: <code>{term.herdr_path}</code>
-            {/if}
-          </span>
-        </div>
+        {#if draft.terminal !== 'herdr-gui'}
+          <div class="field">
+            <span class="label">herdr のパス</span>
+            <input
+              type="text"
+              bind:value={draft.herdr_path}
+              spellcheck="false"
+              placeholder="（自動検出）"
+            />
+            <span class="hint">
+              sandbox 名のワークスペースを作り、その pane で sbx run を実行します。
+              {#if term?.herdr_path}
+                現在: <code>{term.herdr_path}</code>
+              {/if}
+            </span>
+          </div>
+        {/if}
+
+        {#if draft.terminal !== 'herdr'}
+          <div class="field">
+            <span class="label">herdr-app のパス</span>
+            <input
+              type="text"
+              bind:value={draft.herdr_app_path}
+              spellcheck="false"
+              placeholder="（自動検出）"
+            />
+            <span class="hint">
+              Herdr デスクトップアプリに sandbox 名の space を作り、その最初のターミナルで sbx run
+              を実行します。ウィンドウが開いていないと使えません。
+              {#if term?.herdr_app_path}
+                現在: <code>{term.herdr_app_path}</code>
+              {/if}
+            </span>
+          </div>
+        {/if}
 
         <label class="field checkbox">
           <input type="checkbox" bind:checked={draft.focus_terminal} />
           <span>
-            herdr で開いたあと Ghostty を前面に出す
+            開いたあとターミナル側のアプリを前面に出す
             <span class="hint">
-              herdr の TUI は別のターミナル上で動くため、見える場所まで持ち上げます。Ghostty
-              以外を使っている場合は外してください。
+              herdr なら Ghostty、Herdr（GUI）なら Herdr を持ち上げます。herdr の TUI を Ghostty
+              以外で動かしている場合は外してください。
             </span>
           </span>
         </label>
