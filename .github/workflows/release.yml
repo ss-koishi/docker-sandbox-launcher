@@ -19,7 +19,9 @@ env:
 
 jobs:
   build:
-    runs-on: macos-14
+    # macos-14 イメージは GitHub 側で廃止され
+    # "The configuration 'macos-14-arm64-us-default' is not supported" で起動できない。
+    runs-on: macos-15
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
